@@ -3,55 +3,130 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MUJ Mess</title>
+<title>MUJ Mess — eat where you want</title>
+<meta name="description" content="One fee, two messes. Pick BluDove or BluSpring for every meal at Manipal University Jaipur.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header class="top">
-  <div class="brand">MUJ Mess</div>
-  <button id="logout" class="link" hidden>Log out</button>
+
+<nav class="nav">
+  <a class="logo" href="#top">muj<em>mess</em></a>
+  <div class="nav-right">
+    <span class="live-dot" id="live-dot" title="Connected to the mess server"></span>
+    <a class="pill" href="#book">Book a meal</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<header class="hero" id="top">
+  <div class="hero-copy">
+    <p class="kicker">Manipal University Jaipur · BluDove × BluSpring</p>
+    <h1 class="split">One fee.</h1>
+    <h1 class="split heavy">Two messes.</h1>
+    <h1 class="split serif">every meal, your call.</h1>
+    <p class="lede">Same ₹79k a year. Now you choose where you eat: breakfast, lunch, hi-tea and dinner. The kitchens cook for the people who booked, plus 30%.</p>
+    <a class="cta" href="#book">Book today's meals <span>→</span></a>
+  </div>
+  <div class="hero-plate" aria-hidden="true">
+    <div class="plate-spin" id="hero-plate"></div>
+    <span class="sticker s1">no 2-month lock-in</span>
+    <span class="sticker s2">skip = less waste</span>
+  </div>
 </header>
 
-<main>
-  <!-- Step 1: phone -->
-  <section id="step-phone" class="card">
-    <h1>One fee.<br>Two messes.<br>Your pick, every meal.</h1>
-    <p class="sub">Log in with your phone number to book where you eat today.</p>
-    <form id="phone-form">
-      <label for="phone">Mobile number</label>
-      <div class="phone-row"><span>+91</span><input id="phone" inputmode="numeric" autocomplete="tel-national" maxlength="10" placeholder="98xxxxxxxx" required></div>
-      <button type="submit">Send OTP</button>
-    </form>
-  </section>
+<div class="marquee" aria-hidden="true"><div class="marquee-track" id="marquee"></div></div>
 
-  <!-- Step 2: OTP -->
-  <section id="step-otp" class="card" hidden>
-    <h2>Enter the OTP</h2>
-    <p class="sub">Sent to +91 <b id="otp-phone"></b></p>
-    <p id="dev-otp" class="dev" hidden></p>
-    <form id="otp-form">
-      <input id="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••" required>
-      <button type="submit">Verify</button>
-      <button type="button" id="back" class="link">Change number</button>
-    </form>
-  </section>
+<!-- STATEMENT -->
+<section class="statement">
+  <p class="reveal-words">Every student picked one mess and stayed stuck there for two months. Same fee, same campus, <em>half the choice.</em> So we gave it back.</p>
+</section>
 
-  <!-- Step 3: book -->
-  <section id="step-book" hidden>
-    <div class="date-row">
-      <h2>Your meals</h2>
-      <input type="date" id="date">
+<!-- MEALS: pinned horizontal scroll -->
+<section class="meals" id="meals">
+  <div class="meals-track" id="meals-track">
+    <!-- panels rendered by motion.js from /menu (fallback built in) -->
+  </div>
+  <div class="meals-progress"><span id="meals-bar"></span></div>
+</section>
+
+<!-- HOW: numbers -->
+<section class="how">
+  <div class="how-row">
+    <span class="how-num" data-count="4">0</span>
+    <p>meals a day: pick <b>BluDove</b>, <b>BluSpring</b> or skip, up to a week ahead.</p>
+  </div>
+  <div class="how-row">
+    <span class="how-num" data-count="30" data-suffix="%">0</span>
+    <p>buffer on top of bookings, so walk-ins still eat and nothing runs out.</p>
+  </div>
+  <div class="how-row">
+    <span class="how-num" data-count="0" data-prefix="₹">0</span>
+    <p>extra. Same annual fee as today. You just stop being locked in.</p>
+  </div>
+</section>
+
+<!-- LIVE from MySQL -->
+<section class="live" id="live">
+  <div class="live-head">
+    <p class="kicker light">Live from MySQL · v_daily_forecast</p>
+    <h2>Cooking today</h2>
+    <p class="live-note" id="live-note">Connecting to the mess server…</p>
+  </div>
+  <div class="live-grid" id="live-grid"></div>
+</section>
+
+<!-- BOOK -->
+<section class="book" id="book">
+  <div class="book-intro">
+    <h2>Book your <em>plate</em>.</h2>
+    <p>Phone number, OTP, then pick a mess for each meal. It goes straight into the database.</p>
+  </div>
+
+  <div class="book-panel">
+    <div id="step-phone" class="step">
+      <form id="phone-form" novalidate>
+        <label for="phone">Mobile number</label>
+        <div class="field"><span>+91</span><input id="phone" inputmode="numeric" autocomplete="tel-national" maxlength="10" placeholder="98765 43210" required></div>
+        <button type="submit" class="btn">Send OTP</button>
+      </form>
     </div>
-    <div id="slots"></div>
-  </section>
 
-  <p id="toast" role="status"></p>
-</main>
+    <div id="step-otp" class="step" hidden>
+      <form id="otp-form" novalidate>
+        <label for="otp">OTP sent to +91 <b id="otp-phone"></b></label>
+        <p id="dev-otp" class="dev" hidden></p>
+        <input id="otp" class="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••" required>
+        <button type="submit" class="btn">Verify &amp; continue</button>
+        <button type="button" id="back" class="ghost">Use another number</button>
+      </form>
+    </div>
 
+    <div id="step-book" class="step" hidden>
+      <div class="book-top">
+        <p>Logged in as <b id="me-phone"></b></p>
+        <button id="logout" class="ghost">Log out</button>
+      </div>
+      <div class="days" id="days" role="tablist" aria-label="Pick a day"></div>
+      <div id="slots" class="slots"></div>
+    </div>
+  </div>
+</section>
+
+<footer class="foot">
+  <p class="foot-big">Eat anywhere.<br><em>Waste nothing.</em></p>
+  <p class="foot-small">An RDBMS project · FastAPI + MySQL · <a href="https://github.com/srvstav/mess">source</a></p>
+</footer>
+
+<p id="toast" role="status" aria-live="polite"></p>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 <script src="config.js"></script>
+<script src="plates.js"></script>
 <script src="app.js"></script>
+<script src="motion.js"></script>
 </body>
 </html>

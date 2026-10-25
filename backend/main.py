@@ -96,6 +96,12 @@ def book(body: BookingIn, student_id: StudentId, conn: Conn) -> dict[str, str]:
     return {"status": "booked" if body.mess_id else "skipped"}
 
 
+@app.get("/stats/today")
+def stats_today(conn: Conn) -> dict:
+    """Public, no personal data: today's heads per mess and meal, straight from v_daily_forecast."""
+    return {"meal_date": date.today(), "forecast": repo.forecast(conn, date.today())}
+
+
 _PHONE = re.compile(r"\b([6-9]\d)\d{5}(\d{3})\b")
 
 
