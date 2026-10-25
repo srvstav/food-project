@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import getpass
 import json
+import os
 import re
 import secrets
 import sys
@@ -158,7 +159,10 @@ def cmd_local(ask: bool) -> None:
         host = input(f"  Host [{host}]: ").strip() or host
         port = int(input(f"  Port [{port}]: ").strip() or port)
         user = input(f"  Admin user [{user}]: ").strip() or user
-    password = getpass.getpass(f"  Password for {user} (typing is hidden; blank if none): ")
+    # MYSQL_ROOT_PASSWORD lets scripts and CI run setup without typing (it may be empty).
+    password = os.environ.get("MYSQL_ROOT_PASSWORD")
+    if password is None:
+        password = getpass.getpass(f"  Password for {user} (typing is hidden; blank if none): ")
     SAVED.write_text(json.dumps({"host": host, "port": port, "user": user}))
 
     db = build(host, port, user, password, None)
