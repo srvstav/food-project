@@ -1,20 +1,5 @@
-// Booking flow + live stats. Talks to the FastAPI backend; motion.js only animates.
-
-// ?api=<url> overrides the backend and is remembered, so the tunnel URL can change without a redeploy.
-const API = (() => {
-  const fromQuery = new URLSearchParams(location.search).get("api");
-  try {
-    if (fromQuery && /^https?:\/\//.test(fromQuery)) localStorage.setItem("mess_api", fromQuery.replace(/\/$/, ""));
-    return localStorage.getItem("mess_api") || window.MESS_API_DEFAULT;
-  } catch { return fromQuery || window.MESS_API_DEFAULT; }
-})();
-
+// Student flow: login, book meals, pause/resume, live counters. motion.js only animates.
 const $ = id => document.getElementById(id);
-const store = {
-  get: k => { try { return localStorage.getItem(k); } catch { return null; } },
-  set: (k, v) => { try { localStorage.setItem(k, v); } catch {} },
-  del: k => { try { localStorage.removeItem(k); } catch {} },
-};
 
 // Shown when the server is unreachable, so the page still reads well. Mirrors db/seed.sql.
 const FALLBACK_MENU = { slots: [
@@ -32,37 +17,17 @@ const FALLBACK_MENU = { slots: [
     { mess_id: 2, name: "BluSpring", dishes: ["Dal Baati Churma", "Gatte ki Sabzi", "Chapati", "Kheer"] } ] },
 ] };
 
-function toast(msg) {
-  const t = $("toast");
-  t.textContent = msg;
-  t.classList.add("show");
-  clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => t.classList.remove("show"), 2600);
-}
-
-async function api(path, { method = "GET", body } = {}) {
-  const headers = { "Content-Type": "application/json" };
+const api = (path, opts = {}) => {
   const token = store.get("mess_token");
-  if (token) headers.Authorization = `Bearer ${token}`;
-  let res;
-  try {
-    res = await fetch(API + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
-  } catch {
-    $("live-dot").classList.remove("on");
-    throw new Error("Can't reach the mess server");
-  }
-  $("live-dot").classList.add("on");
-  const data = await res.json().catch(() => ({}));
-  if (res.status === 401 && token) { logout(); throw new Error("Session ended — log in again"); }
-  if (!res.ok) {
-    const d = data.detail;
-    throw new Error(typeof d === "string" ? d : "Check what you entered");
-  }
-  return data;
-}
+  return apiFetch(path, {
+    ...opts,
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    onUnauthorized: token ? logout : undefined,
+  });
+};
 
 let menuPromise = null;
-const getMenu = () => (menuPromise ??= api("/menu").catch(() => FALLBACK_MENU));
+const getMenu = () => (menuPromise ??= api("/menu").catch(() => { menuPromise = null; return FALLBACK_MENU; }));
 window.Mess = { getMenu, FALLBACK_MENU };
 
 /* ---------- login ---------- */
@@ -73,8 +38,7 @@ function show(step) {
   for (const id of ["step-phone", "step-otp", "step-book"]) $(id).hidden = id !== step;
 }
 
-async function withBusy(form, fn) {
-  const btn = form.querySelector("button[type=submit]");
+async function withBusy(btn, fn) {
   btn.disabled = true;
   try { await fn(); } catch (e) { toast(e.message); } finally { btn.disabled = false; }
 }
@@ -86,12 +50,12 @@ $("phone-form").addEventListener("submit", e => {
   e.preventDefault();
   const value = $("phone").value.trim();
   if (!/^[6-9]\d{9}$/.test(value)) return toast("Enter a 10-digit Indian mobile number");
-  withBusy(e.target, async () => {
+  withBusy(e.target.querySelector("button[type=submit]"), async () => {
     const res = await api("/auth/request-otp", { method: "POST", body: { phone: value } });
     phone = value;
     $("otp-phone").textContent = phone;
     $("dev-otp").hidden = !res.dev_otp;
-    $("dev-otp").textContent = res.dev_otp ? `Demo mode — no SMS yet. Your OTP is ${res.dev_otp}` : "";
+    $("dev-otp").textContent = res.dev_otp ? `Demo mode - no SMS yet. Your OTP is ${res.dev_otp}` : "";
     $("otp").value = "";
     show("step-otp");
     $("otp").focus();
@@ -102,7 +66,7 @@ $("otp-form").addEventListener("submit", e => {
   e.preventDefault();
   const otp = $("otp").value.trim();
   if (!/^\d{6}$/.test(otp)) return toast("The OTP is 6 digits");
-  withBusy(e.target, async () => {
+  withBusy(e.target.querySelector("button[type=submit]"), async () => {
     const res = await api("/auth/verify-otp", { method: "POST", body: { phone, otp } });
     store.set("mess_token", res.token);
     store.set("mess_phone", res.phone);
@@ -124,17 +88,11 @@ function logout() {
 
 let selectedDate = null;
 
-function isoDay(offset) {
-  const d = new Date();
-  d.setDate(d.getDate() + offset);
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-}
-
 function renderDays() {
   const root = $("days");
   root.replaceChildren();
   for (let i = 0; i <= 7; i++) {
-    const iso = isoDay(i);
+    const iso = istDay(i);
     const d = new Date(iso + "T00:00");
     const b = document.createElement("button");
     b.className = "day";
@@ -155,26 +113,30 @@ function renderDays() {
 }
 
 async function openBooking() {
-  selectedDate ??= isoDay(0);
+  selectedDate ??= istDay(0);
   $("me-phone").textContent = "+91 " + (store.get("mess_phone") || "");
+  $("pause-from").min = $("pause-to").min = istDay(0);
+  $("pause-from").value ||= istDay(1);
+  $("pause-to").value ||= istDay(3);
   show("step-book");
   renderDays();
-  await renderSlots();
+  await Promise.all([renderSlots(), renderPauses()]);
 }
 
 async function renderSlots() {
-  const [menu, { bookings }] = await Promise.all([
+  const [menu, mine] = await Promise.all([
     getMenu(),
     api(`/bookings/me?meal_date=${encodeURIComponent(selectedDate)}`),
   ]);
-  const chosen = Object.fromEntries(bookings.map(b => [b.slot_id, b]));
+  const chosen = Object.fromEntries(mine.bookings.map(b => [b.slot_id, b]));
+  $("paused-banner").hidden = !mine.paused;
   const root = $("slots");
   root.replaceChildren();
 
   for (const slot of menu.slots) {
     const current = chosen[slot.slot_id];
     const el = document.createElement("div");
-    el.className = "slot";
+    el.className = "slot" + (mine.paused ? " is-paused" : "");
 
     const head = document.createElement("div");
     head.className = "slot-head";
@@ -191,6 +153,7 @@ async function renderSlots() {
       const b = document.createElement("button");
       b.className = "choice";
       b.dataset.mess = mess.mess_id;
+      b.disabled = mine.paused;
       b.setAttribute("aria-pressed", String(current?.mess_id === mess.mess_id));
       const mini = document.createElement("span");
       mini.className = "mini";
@@ -210,8 +173,11 @@ async function renderSlots() {
 
     const skip = document.createElement("button");
     skip.className = "skip";
-    skip.setAttribute("aria-pressed", String(current?.status === "skipped"));
-    skip.textContent = current?.status === "skipped" ? "Skipping — not counted" : "Skip this meal";
+    skip.disabled = mine.paused;
+    const status = current?.status;
+    skip.setAttribute("aria-pressed", String(status === "skipped" || status === "paused"));
+    skip.textContent = status === "paused" ? "Paused - you're away"
+      : status === "skipped" ? "Skipping - not counted" : "Skip this meal";
     skip.addEventListener("click", () => book(slot, null));
 
     el.append(head, choices, skip);
@@ -231,13 +197,47 @@ async function book(slot, messId) {
   }
 }
 
+/* ---------- pause / resume ---------- */
+
+const fmt = iso => new Date(iso + "T00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+
+async function renderPauses() {
+  const { pauses } = await api("/pause/me");
+  const list = $("pause-list");
+  list.replaceChildren();
+  for (const p of pauses) {
+    const li = document.createElement("li");
+    li.textContent = `Away ${fmt(p.from_date)} → ${fmt(p.to_date)}`;
+    list.append(li);
+  }
+  $("resume").hidden = pauses.length === 0;
+}
+
+$("pause-form").addEventListener("submit", e => {
+  e.preventDefault();
+  const from_date = $("pause-from").value, to_date = $("pause-to").value;
+  if (!from_date || !to_date) return toast("Pick both dates");
+  withBusy(e.target.querySelector("button[type=submit]"), async () => {
+    await api("/pause", { method: "POST", body: { from_date, to_date } });
+    toast(`Paused ${fmt(from_date)} → ${fmt(to_date)}. Those meals won't be cooked for you.`);
+    await Promise.all([renderPauses(), renderSlots()]);
+    refreshLive();
+  });
+});
+
+$("resume").addEventListener("click", e => withBusy(e.currentTarget, async () => {
+  await api("/resume", { method: "POST" });
+  toast("Welcome back! Book your meals again.");
+  await Promise.all([renderPauses(), renderSlots()]);
+}));
+
 /* ---------- live forecast from v_daily_forecast ---------- */
 
 const lastCounts = {};
 
 async function refreshLive() {
   try {
-    const [menu, { forecast }] = await Promise.all([getMenu(), api("/stats/today")]);
+    const [menu, { forecast }] = await Promise.all([getMenu(), apiFetch("/stats/today")]);
     const by = Object.fromEntries(forecast.map(f => [`${f.meal}|${f.mess}`, f]));
     const total = forecast.reduce((s, f) => s + f.booked, 0);
     $("live-note").textContent = total
@@ -276,7 +276,7 @@ async function refreshLive() {
       row.querySelector(".cook").textContent = `cook ${f ? f.cook_for : 0}`;
     }
   } catch {
-    $("live-note").textContent = "Mess server offline. Start the backend and the tunnel, then open the site with ?api=<tunnel URL>.";
+    $("live-note").textContent = "Mess server offline right now. If you're running it locally, start it with start.bat.";
   }
 }
 

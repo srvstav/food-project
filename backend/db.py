@@ -16,6 +16,10 @@ def connect() -> pymysql.connections.Connection:
         cursorclass=DictCursor,
         autocommit=False,
         charset="utf8mb4",
+        connect_timeout=10,
+        ssl={"ca": settings.db_ssl_ca} if settings.db_ssl_ca else None,
+        # Timestamps written by MySQL (CURRENT_TIMESTAMP) are in India time, like the app.
+        init_command="SET time_zone = '+05:30'",
     )
 
 

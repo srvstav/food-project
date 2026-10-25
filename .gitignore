@@ -3,3 +3,6 @@ backend/.venv/
 __pycache__/
 .pytest_cache/
 .DS_Store
+backend/.env.*
+backend/ca.pem
+backend/.setup.json

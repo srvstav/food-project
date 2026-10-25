@@ -110,14 +110,32 @@
         <button id="logout" class="ghost">Log out</button>
       </div>
       <div class="days" id="days" role="tablist" aria-label="Pick a day"></div>
+      <p id="paused-banner" class="paused-banner" hidden>You're away on this day, so your mess is paused. Come back early? Tap “I'm back” below.</p>
       <div id="slots" class="slots"></div>
+
+      <div class="pause-box">
+        <h3>Going home?</h3>
+        <p>Pause your mess while you're away. Those meals won't be cooked for you.</p>
+        <form id="pause-form" class="pause-form" novalidate>
+          <label>Leaving <input type="date" id="pause-from" required></label>
+          <label>Back on <input type="date" id="pause-to" required></label>
+          <button type="submit" class="btn small">Pause my mess</button>
+        </form>
+        <ul id="pause-list" class="pause-list"></ul>
+        <button id="resume" class="btn small light" hidden>I'm back - resume now</button>
+      </div>
     </div>
   </div>
 </section>
 
 <footer class="foot">
   <p class="foot-big">Eat anywhere.<br><em>Waste nothing.</em></p>
-  <p class="foot-small">An RDBMS project · FastAPI + MySQL · <a href="https://github.com/srvstav/mess">source</a></p>
+  <nav class="foot-links">
+    <a href="dashboard.html">Live dashboard</a>
+    <a href="staff.html">Mess staff counter</a>
+    <a href="project.html">How it's built</a>
+  </nav>
+  <p class="foot-small">An RDBMS project · MySQL 8 + FastAPI · Manipal University Jaipur</p>
 </footer>
 
 <p id="toast" role="status" aria-live="polite"></p>
@@ -125,6 +143,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 <script src="config.js"></script>
+<script src="shared.js"></script>
 <script src="plates.js"></script>
 <script src="app.js"></script>
 <script src="motion.js"></script>

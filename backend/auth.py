@@ -5,13 +5,13 @@ import hmac
 import json
 import secrets
 import time
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from fastapi import Header, HTTPException, status
 from pymysql.connections import Connection
 
 import repo
-from config import settings
+from config import now, settings
 
 
 def _hash_code(phone: str, code: str) -> str:
@@ -21,17 +21,17 @@ def _hash_code(phone: str, code: str) -> str:
 
 def issue_otp(conn: Connection, phone: str) -> str:
     last = repo.latest_otp(conn, phone)
-    now = datetime.now()
-    if last and (now - last["created_at"]).total_seconds() < settings.otp_resend_seconds:
+    t = now()
+    if last and (t - last["created_at"]).total_seconds() < settings.otp_resend_seconds:
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Wait a few seconds before asking for a new OTP")
     code = f"{secrets.randbelow(10**6):06d}"
-    repo.insert_otp(conn, phone, _hash_code(phone, code), now + timedelta(seconds=settings.otp_ttl_seconds))
+    repo.insert_otp(conn, phone, _hash_code(phone, code), t, t + timedelta(seconds=settings.otp_ttl_seconds))
     return code
 
 
 def verify_otp(conn: Connection, phone: str, code: str) -> int:
     otp = repo.latest_otp(conn, phone)
-    if otp is None or otp["used_at"] is not None or otp["expires_at"] < datetime.now():
+    if otp is None or otp["used_at"] is not None or otp["expires_at"] < now():
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "OTP expired — request a new one")
     if otp["attempts"] >= settings.otp_max_attempts:
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Too many tries — request a new OTP")
@@ -74,3 +74,9 @@ def current_student(authorization: str = Header(default="")) -> int:
     if payload.get("exp", 0) < time.time():
         raise unauthorized
     return int(payload["sid"])
+
+
+def staff_only(x_staff_pin: str = Header(default="")) -> None:
+    """FastAPI dependency for mess-counter actions: 'X-Staff-Pin: <pin>'."""
+    if not x_staff_pin or not hmac.compare_digest(x_staff_pin.encode(), settings.staff_pin.encode()):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Wrong staff PIN")

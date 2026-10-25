@@ -19,3 +19,9 @@ INSERT INTO menu_items (mess_id, slot_id, dish) VALUES
   (2, 2, 'Chole'), (2, 2, 'Bhature'), (2, 2, 'Veg Pulao'), (2, 2, 'Lassi'),
   (2, 3, 'Veg Sandwich'), (2, 3, 'Bhel Puri'), (2, 3, 'Lemon Tea'),
   (2, 4, 'Dal Baati Churma'), (2, 4, 'Gatte ki Sabzi'), (2, 4, 'Chapati'), (2, 4, 'Kheer');
+
+-- Sample NGOs near campus. Fictional names and numbers, for the demo only.
+INSERT INTO ngos (name, area, contact_phone) VALUES
+  ('Sahyog Food Shelf',       'Bagru',        '9000000001'),
+  ('Ann Seva Night Shelter',  'Sanganer',     '9000000002'),
+  ('Dahmi Community Kitchen', 'Dahmi Kalan',  '9000000003');

@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mess Live Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tools.css">
+</head>
+<body>
+<header class="bar">
+  <h1>Mess <em>live</em> · straight from MySQL</h1>
+  <span class="meta">refresh every 2 s · last <b id="tick">-</b> · <span id="server"></span></span>
+  <nav><a href="index.html">Student site</a><a href="staff.html">Staff counter</a><a href="project.html">How it's built</a></nav>
+</header>
+
+<main class="grid">
+  <div class="stack">
+    <section class="card">
+      <h2><span>Today</span><code id="today"></code></h2>
+      <div class="kpis">
+        <div class="kpi"><div class="n" id="k-booked">0</div><div class="l">plates booked</div></div>
+        <div class="kpi"><div class="n" id="k-cooked">0</div><div class="l">to cook (booked × 1.3)</div></div>
+        <div class="kpi"><div class="n" id="k-served">0</div><div class="l">served so far</div></div>
+        <div class="kpi"><div class="n" id="k-donated">0</div><div class="l">portions donated</div></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2><span>Each meal, each mess</span><code>v_meal_summary</code></h2>
+      <div class="scroll"><table>
+        <thead><tr><th>meal</th><th>mess</th><th class="num">booked</th><th class="num">cook</th><th class="num">served</th><th class="num">no-show</th><th class="num">walk-in</th><th class="num">donate</th><th>status</th></tr></thead>
+        <tbody id="summary"></tbody>
+      </table></div>
+    </section>
+
+    <section class="card">
+      <h2><span>Donations today</span><code>donations</code></h2>
+      <div class="scroll"><table>
+        <thead><tr><th>meal</th><th>mess</th><th>ngo</th><th>area</th><th class="num">portions</th></tr></thead>
+        <tbody id="donations"></tbody>
+      </table></div>
+    </section>
+
+    <section class="card">
+      <h2><span>NGO totals (all time)</span><code>v_ngo_totals</code></h2>
+      <div class="scroll"><table>
+        <thead><tr><th>ngo</th><th>area</th><th class="num">deliveries</th><th class="num">portions</th></tr></thead>
+        <tbody id="ngos"></tbody>
+      </table></div>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2><span>Activity - written only by triggers</span><code>activity_log</code></h2>
+    <div class="scroll"><table>
+      <thead><tr><th>#</th><th>time</th><th>event</th><th>detail</th></tr></thead>
+      <tbody id="log"></tbody>
+    </table></div>
+  </section>
+</main>
+<p id="toast" role="status"></p>
+
+<script src="config.js"></script>
+<script src="shared.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const rows = (id, list, cols, render) => {
+    $(id).innerHTML = list.length ? list.map(render).join("") : `<tr><td colspan="${cols}" class="empty">Nothing yet.</td></tr>`;
+  };
+  $("server").textContent = API.replace(/^https?:\/\//, "");
+  let lastId = 0, slots = {};
+
+  apiFetch("/menu").then(m => { for (const s of m.slots) slots[s.slot_id] = s; }).catch(() => {});
+
+  // A meal is "open" during its time window, "done" after it, "later" before it (India time).
+  function mealState(slotId) {
+    const s = slots[slotId];
+    if (!s) return "";
+    const t = istTime();
+    return t < s.starts_at ? "later" : t > s.ends_at ? "done" : "open";
+  }
+
+  async function refresh() {
+    try {
+      const d = await apiFetch("/admin/live?limit=40");
+      $("today").textContent = d.meal_date;
+      const sum = k => d.summary.reduce((a, r) => a + Number(r[k]), 0);
+      $("k-booked").textContent = sum("booked");
+      $("k-cooked").textContent = sum("cooked");
+      $("k-served").textContent = sum("served");
+      $("k-donated").textContent = d.donations.reduce((a, r) => a + Number(r.portions), 0);
+
+      const closed = new Set(d.donations.map(x => x.slot_id));  // staff pressed "meal over"
+      rows("summary", d.summary, 9, r => {
+        const st = closed.has(r.slot_id) ? "done" : mealState(r.slot_id);
+        const after = st === "done";  // no-shows and donations only mean something once the meal is over
+        return `<tr><td>${esc(r.meal)}</td><td class="mess-${r.mess_id}">${esc(r.mess)}</td>
+          <td class="num">${r.booked}</td><td class="num">${r.cooked}</td><td class="num">${r.served}</td>
+          <td class="num">${after ? r.no_shows : "-"}</td><td class="num">${r.walk_ins}</td>
+          <td class="num">${after ? r.donate : "-"}</td>
+          <td>${st ? `<span class="pill ${st}">${st === "done" ? "over" : st === "open" ? "serving" : "upcoming"}</span>` : ""}</td></tr>`;
+      });
+      rows("donations", d.donations, 5, r => `<tr><td>${esc(r.meal)}</td><td>${esc(r.mess)}</td><td>${esc(r.ngo)}</td><td>${esc(r.area)}</td><td class="num">${r.portions}</td></tr>`);
+      rows("ngos", d.ngos, 4, r => `<tr><td>${esc(r.name)}</td><td>${esc(r.area)}</td><td class="num">${r.deliveries}</td><td class="num">${r.portions}</td></tr>`);
+      rows("log", d.activity, 4, a => `<tr class="${lastId && a.id > lastId ? "new" : ""}"><td>${a.id}</td><td>${esc(a.at)}</td>
+          <td class="ev ${esc(a.event)}">${esc(a.event)}</td><td class="wrap">${esc(a.detail)}</td></tr>`);
+      lastId = Math.max(lastId, ...d.activity.map(a => a.id), 0);
+      $("tick").textContent = new Date().toLocaleTimeString();
+    } catch (e) {
+      $("tick").textContent = "offline";
+    }
+  }
+  refresh();
+  setInterval(refresh, 2000);
+</script>
+</body>
+</html>
