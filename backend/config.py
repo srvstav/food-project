@@ -1,3 +1,5 @@
+import base64
+import json
 import os
 import tempfile
 from dataclasses import dataclass
@@ -9,6 +11,11 @@ from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent / ".env")
+
+# On Render every setting arrives packed in one value (made by setup_cloud.bat).
+if packed := os.environ.get("MESS_SETTINGS"):
+    for _k, _v in json.loads(base64.b64decode(packed)).items():
+        os.environ.setdefault(_k, str(_v))
 
 IST = ZoneInfo("Asia/Kolkata")  # cloud servers run on UTC; the mess runs on India time
 

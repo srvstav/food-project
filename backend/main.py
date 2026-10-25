@@ -1,4 +1,5 @@
 """MUJ Mess API — controllers only. SQL lives in repo.py, login logic in auth.py."""
+import logging
 import re
 from datetime import date, timedelta
 from pathlib import Path
@@ -16,6 +17,8 @@ import auth
 import repo
 from config import settings, today
 from db import get_conn
+
+log = logging.getLogger("uvicorn.error")
 
 app = FastAPI(title="MUJ Mess API", description="One fee, two messes, book every meal.")
 app.add_middleware(
@@ -38,6 +41,7 @@ async def db_rule_violation(_: Request, exc: pymysql.err.OperationalError) -> JS
     # SIGNAL SQLSTATE '45000' inside a trigger arrives as MySQL error 1644 — a business rule, not a crash.
     if exc.args and exc.args[0] == 1644:
         return JSONResponse({"detail": exc.args[1]}, status_code=status.HTTP_409_CONFLICT)
+    log.error("database error: %s", exc)  # shows up in the start.bat window / Render logs
     return JSONResponse({"detail": "Database is unavailable, try again"}, status_code=503)
 
 

@@ -10,6 +10,7 @@ least-privilege user `mess_app`, and writes backend/.env for the API.
 """
 from __future__ import annotations
 
+import base64
 import getpass
 import json
 import os
@@ -120,7 +121,8 @@ def build(host: str, port: int, admin_user: str, admin_pass: str, ssl_ca: str | 
         with conn.cursor() as cur:
             for h in app_hosts:
                 cur.execute(f"DROP USER IF EXISTS 'mess_app'@'{h}'")
-                cur.execute(f"CREATE USER 'mess_app'@'{h}' IDENTIFIED BY %s", (app_pass,))
+                # %% because PyMySQL %-formats queries that have parameters, and the cloud host is '%'.
+                cur.execute(f"CREATE USER 'mess_app'@'{h.replace('%', '%%')}' IDENTIFIED BY %s", (app_pass,))
                 # Least privilege: read/write rows and call procedures. No DELETE, DROP or ALTER.
                 cur.execute(f"GRANT SELECT, INSERT, UPDATE, EXECUTE ON mess.* TO 'mess_app'@'{h}'")
         conn.commit()
@@ -172,24 +174,67 @@ def cmd_local(ask: bool) -> None:
     print("  Next: double-click start.bat (Windows) or run ./start.sh, then open http://127.0.0.1:8000")
 
 
-def cmd_cloud() -> None:
-    env_file = BACKEND / ".env.cloud"
-    ca_file = BACKEND / "ca.pem"
-    if not env_file.exists():
-        sys.exit("Create backend/.env.cloud with one line:  DATABASE_URL=mysql://avnadmin:...@host:port/defaultdb?ssl-mode=REQUIRED")
-    if not ca_file.exists():
-        sys.exit("Save the Aiven CA certificate as backend/ca.pem")
-    m = re.search(r"^DATABASE_URL=(.+)$", env_file.read_text(encoding="utf-8"), re.M)
-    if not m:
-        sys.exit("backend/.env.cloud must contain a line starting with DATABASE_URL=")
-    url = urlparse(m.group(1).strip())
-    if url.scheme not in ("mysql", "mysql2") or not url.hostname:
-        sys.exit("DATABASE_URL should look like mysql://user:pass@host:port/db")
+def _find_ca() -> Path:
+    """Aiven's certificate downloads as ca.pem. Look next to the project, then in Downloads."""
+    for c in (BACKEND / "ca.pem", Path.home() / "Downloads" / "ca.pem", ROOT / "ca.pem"):
+        if c.exists():
+            return c
+    typed = input("  Drag the downloaded ca.pem file into this window, then press Enter: ").strip().strip('"').strip("'")
+    if not typed or not Path(typed).exists():
+        sys.exit("ca.pem not found. In Aiven, click 'CA certificate' -> Download, then run this again.")
+    return Path(typed)
 
-    db = build(url.hostname, url.port or 3306, unquote(url.username or ""), unquote(url.password or ""), str(ca_file))
-    env = write_env(db, ca_file.read_text(encoding="utf-8"), BACKEND / ".env.render")
+
+def _copy_to_clipboard(text: str) -> bool:
+    import subprocess
+    cmd = ["clip"] if os.name == "nt" else ["pbcopy"] if sys.platform == "darwin" else None
+    if not cmd:
+        return False
+    try:
+        subprocess.run(cmd, input=text.encode("ascii"), check=True)
+        return True
+    except (OSError, subprocess.CalledProcessError):
+        return False
+
+
+def cmd_cloud() -> None:
+    print("Cloud database (Aiven).")
+    env_file = BACKEND / ".env.cloud"
+    uri = os.environ.get("DATABASE_URL", "")
+    if not uri and env_file.exists():
+        m = re.search(r"^DATABASE_URL=(.+)$", env_file.read_text(encoding="utf-8"), re.M)
+        uri = m.group(1) if m else ""
+    if not uri:
+        uri = input("  Paste the Aiven 'Service URI' (starts with mysql://) and press Enter:\n  > ")
+    url = urlparse(uri.strip())
+    if url.scheme not in ("mysql", "mysql2") or not url.hostname or not url.password:
+        sys.exit("That doesn't look like the Service URI. It starts with mysql://avnadmin:... - copy it again from Aiven.")
+    env_file.write_text(f"DATABASE_URL={uri.strip()}\n", encoding="utf-8")  # remembered for next time
+
+    ca_file = _find_ca()
+    print(f"-> Using certificate {ca_file}")
+    admin_user, admin_pass = unquote(url.username or ""), unquote(url.password or "")
+    db = build(url.hostname, url.port or 3306, admin_user, admin_pass, str(ca_file))
+    ca_pem = ca_file.read_text(encoding="utf-8")
+    env = write_env(db, ca_pem, BACKEND / ".env.render")
+
+    # Render gets ONE value: every setting, packed into a single line.
+    packed = base64.b64encode(json.dumps({k: v for k, v in env.items() if k != "DB_SSL_CA_PEM"} | {"DB_SSL_CA_PEM": ca_pem}).encode()).decode()
+    (ROOT / "RENDER_VALUE.txt").write_text(packed + "\n", encoding="ascii")
+    copied = _copy_to_clipboard(packed)
+
+    (ROOT / "CLOUD_DETAILS.txt").write_text(
+        "MUJ Mess - cloud details (keep private, share only with your team)\n\n"
+        "MySQL Workbench -> new connection:\n"
+        f"  Hostname: {url.hostname}\n  Port: {url.port or 3306}\n  Username: {admin_user}\n  Password: {admin_pass}\n"
+        "  SSL tab: Use SSL = Require, SSL CA File = ca.pem (send it along with this file)\n\n"
+        f"Staff PIN (staff.html): {env['STAFF_PIN']}\n", encoding="utf-8")
+    (ROOT / "ca.pem").write_text(ca_pem, encoding="utf-8")
+
     print("\nOK: Cloud database ready.")
-    print("  Render settings saved to backend/.env.render - paste them into Render -> Environment.")
+    print("  Render needs ONE value, named MESS_SETTINGS.")
+    print("  It is " + ("already COPIED - just paste it (Ctrl+V) in Render." if copied else "in RENDER_VALUE.txt - copy all of it."))
+    print("  Workbench details for the team: CLOUD_DETAILS.txt (+ ca.pem)")
     print(f"  Staff PIN: {env['STAFF_PIN']}")
 
 

@@ -17,6 +17,25 @@ An RDBMS project: **MySQL 8** (11 tables, 10 triggers, 3 stored procedures, 4 vi
  Offline mode: start.bat runs the API + website on one laptop against that laptop's MySQL.
 ```
 
+## ▶ Start here (the whole handover)
+
+**Everyone (on their own Windows laptop, ~10 min):**
+1. Install **MySQL Server + Workbench** and **Python** (details in section A). Remember the MySQL root password.
+2. Download this project (**Code → Download ZIP**) and unzip it.
+3. Double-click **`setup.bat`**, press Enter 3 times, then type the MySQL root password.
+4. Double-click **`start.bat`**. The site opens at http://127.0.0.1:8000. That's the full system, offline.
+
+**One person, once, to put it online (~10 min):**
+5. Sign up at **aiven.io** → Create service → **MySQL** → **Free plan**. When it's running, copy the **Service URI** and click **CA certificate → Download**.
+6. Double-click **`setup_cloud.bat`** and paste the Service URI when asked. It finds `ca.pem` in Downloads by itself, builds the cloud database, and **copies one long line to your clipboard**.
+7. Sign up at **render.com** with GitHub → open https://dashboard.render.com/blueprint/new → pick this repo → paste (Ctrl+V) into **MESS_SETTINGS** → **Apply**. Wait for **Live**.
+   **The Render address (`https://mess-api-….onrender.com`) is now your website**, usable from any phone.
+8. Send the other two **`CLOUD_DETAILS.txt`** and **`ca.pem`**, so their Workbench connects to the same live database (section C4).
+
+*Optional:* to make the github.io address use the cloud too, edit `docs/config.js` on github.com (pencil icon) and paste the Render address into `MESS_CLOUD_API`.
+
+If step 6 says the cloud *"will refuse to create triggers"*, Aiven didn't allow triggers. Use the offline setup from step 4 for the demo; everything, including the triggers, works there.
+
 ---
 
 ## A. Run it on a Windows laptop (offline, about 10 minutes)
@@ -71,33 +90,30 @@ This makes the website work from any phone, and all three laptops' Workbench sho
 **1. Cloud MySQL (Aiven, free)**
 1. Sign up at https://console.aiven.io (the GitHub login is fine).
 2. **Create service → MySQL → Free plan →** create it, and wait until it shows *Running*.
-3. On the service page, copy the **Service URI**. In the project's `backend` folder, create a file named `.env.cloud` containing one line:
-   ```
-   DATABASE_URL=mysql://avnadmin:PASSWORD@HOST:PORT/defaultdb?ssl-mode=REQUIRED
-   ```
-4. Click **CA certificate → Download** and save it as `backend\ca.pem`.
-5. Double-click `setup_cloud.bat`. It builds the database in the cloud and writes `backend\.env.render`.
+3. On the service page, copy the **Service URI**, and click **CA certificate → Download** (it saves `ca.pem` to Downloads).
+4. Double-click **`setup_cloud.bat`** and paste the Service URI when asked. It:
+   - builds all tables, triggers, procedures and views in the cloud,
+   - copies **one line** (the Render setting) to your clipboard, and also saves it in `RENDER_VALUE.txt`,
+   - writes **`CLOUD_DETAILS.txt`** (the Workbench login + staff PIN) and puts `ca.pem` next to it.
 
-   If it says the server *"will refuse to create triggers"*: in Aiven, open **Service settings → Advanced configuration**, turn on `log_bin_trust_function_creators` if it's listed, and run the command again.
+   If it says the server *"will refuse to create triggers"*: in Aiven, open **Service settings → Advanced configuration**, turn on `log_bin_trust_function_creators` if it's listed, and run it again. If it isn't listed, use the offline setup (section A) for the demo.
 
-**2. Cloud API (Render, free)**
+**2. Cloud API + website (Render, free)**
 1. Sign up at https://render.com with GitHub, and give it access to this repository.
-2. Open https://dashboard.render.com/blueprint/new, pick this repository, then click **Apply**.
-3. Render asks for the values marked *sync: false*. Copy each one from `backend\.env.render`.
-4. When it shows **Live**, copy its URL (like `https://mess-api-xxxx.onrender.com`) and open `<URL>/health`. It should say `"status":"ok"`.
+2. Open https://dashboard.render.com/blueprint/new → pick this repository.
+3. In the **MESS_SETTINGS** box, paste (Ctrl+V) → **Apply**. The first build takes 3–5 minutes.
+4. When it shows **Live**, open its address (like `https://mess-api-xxxx.onrender.com`). That address is the full website: student site, `/dashboard.html`, `/staff.html`, `/project.html`.
+5. *Optional:* so the github.io address also works, open `docs/config.js` on github.com (pencil icon), set `window.MESS_CLOUD_API = "https://mess-api-xxxx.onrender.com";` and commit. This also turns on the `keep-awake` ping, which stops the free server from sleeping during the day.
 
-**3. Point the website at it**
-1. In `docs/config.js`, set `window.MESS_CLOUD_API = "https://mess-api-xxxx.onrender.com";`
-2. Commit and push. GitHub Pages serves the `docs/` folder: **Settings → Pages → Branch `main` / `docs`**.
-3. The `keep-awake` GitHub Action pings the API every 10 minutes during the day, so it never takes 50 seconds to wake during the demo.
-
-**4. Workbench → cloud database (every laptop)**
-New connection: Hostname and Port from Aiven · Username `avnadmin` · Password from Aiven.
+**3. Workbench → cloud database (every laptop)**
+Use `CLOUD_DETAILS.txt`: new connection with that Hostname, Port, Username and Password.
 On the **SSL** tab, set *Use SSL* to **Require**, and *SSL CA File* to `ca.pem`. Then **Test Connection**.
+
+**4. Sample data in the cloud:** double-click **`demo_cloud.bat`**.
 
 ## D. Morning of the demo
 
-- [ ] Open `<cloud API>/health`. It should say ok (this also wakes the server).
+- [ ] Open `<Render address>/health`. It should say ok (this also wakes the server, which can take up to a minute).
 - [ ] Double-click `demo_cloud.bat` (or `demo.bat` for the offline setup) so today has data.
 - [ ] Phone: the student site · Projector: `dashboard.html` · Laptop: Workbench with `demo_queries.sql`.
 - [ ] Backup: if the Wi-Fi fails, use `start.bat` on one laptop (section A). Everything works without internet.

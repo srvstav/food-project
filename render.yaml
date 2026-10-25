@@ -1,6 +1,6 @@
-# Render Blueprint: the API as a free web service.
-# Deploy: https://dashboard.render.com/blueprint/new  → pick this repo.
-# Values marked sync:false are asked for once; paste them from backend/.env.render (made by `setup.bat cloud`).
+# Render Blueprint: the API + website as one free web service.
+# Deploy: https://dashboard.render.com/blueprint/new → pick this repo → paste MESS_SETTINGS → Apply.
+# MESS_SETTINGS is the single line that setup_cloud.bat copies to the clipboard (also in RENDER_VALUE.txt).
 services:
   - type: web
     name: mess-api
@@ -14,23 +14,5 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.8
-      - key: DB_HOST
+      - key: MESS_SETTINGS
         sync: false
-      - key: DB_PORT
-        sync: false
-      - key: DB_USER
-        sync: false
-      - key: DB_PASSWORD
-        sync: false
-      - key: DB_NAME
-        value: mess
-      - key: DB_SSL_CA_PEM
-        sync: false
-      - key: TOKEN_SECRET
-        sync: false
-      - key: STAFF_PIN
-        sync: false
-      - key: OTP_MODE
-        value: dev
-      - key: ALLOWED_ORIGINS
-        value: "*"
