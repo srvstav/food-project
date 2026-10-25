@@ -120,6 +120,8 @@ def test_date_window_and_unknown_ids() -> None:
 
 
 def test_cook_for_is_booked_plus_30_percent() -> None:
+    # Own booking, so this passes on a brand-new empty database too.
+    client.post("/bookings", json={"meal_date": str(today()), "slot_id": 1, "mess_id": 1}, headers=_login(_phone()))
     with connect() as conn, conn.cursor() as cur:
         cur.execute("SELECT booked, cook_for FROM v_daily_forecast")
         rows = cur.fetchall()
