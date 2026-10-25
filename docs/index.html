@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MUJ Mess</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">MUJ Mess</div>
+  <button id="logout" class="link" hidden>Log out</button>
+</header>
+
+<main>
+  <!-- Step 1: phone -->
+  <section id="step-phone" class="card">
+    <h1>One fee.<br>Two messes.<br>Your pick, every meal.</h1>
+    <p class="sub">Log in with your phone number to book where you eat today.</p>
+    <form id="phone-form">
+      <label for="phone">Mobile number</label>
+      <div class="phone-row"><span>+91</span><input id="phone" inputmode="numeric" autocomplete="tel-national" maxlength="10" placeholder="98xxxxxxxx" required></div>
+      <button type="submit">Send OTP</button>
+    </form>
+  </section>
+
+  <!-- Step 2: OTP -->
+  <section id="step-otp" class="card" hidden>
+    <h2>Enter the OTP</h2>
+    <p class="sub">Sent to +91 <b id="otp-phone"></b></p>
+    <p id="dev-otp" class="dev" hidden></p>
+    <form id="otp-form">
+      <input id="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••" required>
+      <button type="submit">Verify</button>
+      <button type="button" id="back" class="link">Change number</button>
+    </form>
+  </section>
+
+  <!-- Step 3: book -->
+  <section id="step-book" hidden>
+    <div class="date-row">
+      <h2>Your meals</h2>
+      <input type="date" id="date">
+    </div>
+    <div id="slots"></div>
+  </section>
+
+  <p id="toast" role="status"></p>
+</main>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

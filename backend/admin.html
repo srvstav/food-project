@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mess Live</title>
+<style>
+  :root { --bg:#0f1115; --panel:#171a21; --ink:#e8e6e1; --mute:#8b8f98; --line:#262a33;
+          --book:#5fb3ff; --skip:#f0a35e; --login:#9be29b; --change:#d59cff; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  header { padding:16px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:baseline; gap:12px; flex-wrap:wrap; }
+  h1 { margin:0; font-size:15px; letter-spacing:.04em; }
+  .pulse { color:var(--mute); }
+  .pulse b { color:var(--login); }
+  main { display:grid; grid-template-columns: 1fr; gap:16px; padding:16px; }
+  @media (min-width: 900px) { main { grid-template-columns: 3fr 2fr; } }
+  section { background:var(--panel); border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  h2 { margin:0; padding:10px 12px; font-size:12px; color:var(--mute); text-transform:uppercase; letter-spacing:.08em; border-bottom:1px solid var(--line); }
+  table { width:100%; border-collapse:collapse; }
+  td, th { padding:7px 12px; text-align:left; border-bottom:1px solid var(--line); white-space:nowrap; }
+  td.detail { white-space:normal; }
+  th { color:var(--mute); font-weight:normal; }
+  tr.new { animation: flash 1.6s ease-out; }
+  @keyframes flash { from { background:#2b3b52; } to { background:transparent; } }
+  .ev { font-weight:bold; }
+  .BOOK { color:var(--book); } .SKIP { color:var(--skip); } .LOGIN, .SIGNUP { color:var(--login); } .CHANGE { color:var(--change); }
+  .num { text-align:right; }
+  .empty { padding:12px; color:var(--mute); }
+</style>
+</head>
+<body>
+<header>
+  <h1>MUJ MESS · LIVE FROM MYSQL</h1>
+  <span class="pulse">refreshing every 2s · last <b id="tick">—</b></span>
+</header>
+<main>
+  <section>
+    <h2>activity_log (written by triggers)</h2>
+    <table><thead><tr><th>#</th><th>time</th><th>event</th><th>detail</th></tr></thead><tbody id="log"></tbody></table>
+  </section>
+  <section>
+    <h2>v_daily_forecast · today · cook = booked × 1.3</h2>
+    <table><thead><tr><th>mess</th><th>meal</th><th class="num">booked</th><th class="num">cook for</th></tr></thead><tbody id="fc"></tbody></table>
+  </section>
+</main>
+<script>
+  let lastId = 0;
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+
+  async function refresh() {
+    try {
+      const res = await fetch("/admin/live");
+      if (!res.ok) throw new Error(res.status);
+      const { activity, forecast } = await res.json();
+      document.getElementById("log").innerHTML = activity.length ? activity.map(a =>
+        `<tr class="${a.id > lastId && lastId ? "new" : ""}"><td>${a.id}</td><td>${esc(a.at)}</td>` +
+        `<td class="ev ${esc(a.event)}">${esc(a.event)}</td><td class="detail">${esc(a.detail)}</td></tr>`).join("")
+        : `<tr><td colspan="4" class="empty">Nothing yet — log in on the site.</td></tr>`;
+      lastId = Math.max(lastId, ...activity.map(a => a.id));
+      document.getElementById("fc").innerHTML = forecast.length ? forecast.map(f =>
+        `<tr><td>${esc(f.mess)}</td><td>${esc(f.meal)}</td><td class="num">${f.booked}</td><td class="num">${f.cook_for}</td></tr>`).join("")
+        : `<tr><td colspan="4" class="empty">No bookings for today yet.</td></tr>`;
+      document.getElementById("tick").textContent = new Date().toLocaleTimeString();
+    } catch (e) {
+      document.getElementById("tick").textContent = "offline";
+    }
+  }
+  refresh();
+  setInterval(refresh, 2000);
+</script>
+</body>
+</html>
