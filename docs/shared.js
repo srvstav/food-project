@@ -27,6 +27,7 @@ window.toast = msg => {
 // The free cloud server sleeps when idle and needs up to a minute to wake.
 // Requests wait up to 75 s, and a toast explains the wait after 4 s.
 window.apiFetch = async (path, { method = "GET", body, headers = {}, onUnauthorized } = {}) => {
+  if (!window.API) throw new Error("The cloud server isn't set up yet - see README, section C");
   const ctrl = new AbortController();
   const kill = setTimeout(() => ctrl.abort(), 75000);
   const slow = setTimeout(() => window.toast("Waking up the server (free cloud plan) - up to a minute…"), 4000);

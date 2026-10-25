@@ -14,5 +14,6 @@ jobs:
       - name: Ping the API
         run: |
           url=$(grep -o 'MESS_CLOUD_API = "[^"]*"' docs/config.js | cut -d'"' -f2)
+          [ -n "$url" ] || { echo "MESS_CLOUD_API not set in docs/config.js yet"; exit 0; }
           echo "Pinging $url/health"
           curl -fsS --max-time 90 "$url/health" || echo "API not reachable (not deployed yet?)"
