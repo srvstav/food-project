@@ -30,7 +30,7 @@ Open **File → Open SQL Script → `db\demo_queries.sql`**. Put the cursor insi
 | **The kitchens' numbers** | Queries 3 and 4 | `cook_for = booked × 1.3`, worked out by a view; no-shows, walk-ins and donations after the meal |
 | **The business side** | `SELECT * FROM v_mess_earnings WHERE meal_date = CURDATE() - INTERVAL 1 DAY;` | Each mess is paid per plate served and pays per plate cooked: profit, waste |
 | **A trigger refusing bad data** | Query **a2**: a man in a girls' hostel | Error 1644: "This hostel is for the other gender", raised by `trg_student_check_ins` |
-| **A CHECK constraint** | Second insert in **a2** (phone `12345`) | Refused by `chk_phone` |
+| **A CHECK constraint** | Last insert in **a2** (phone `12345`) | Refused by `chk_phone` (error 3819) |
 | **A stored procedure** | `CALL sp_close_meal(CURDATE(), 1);` then query 5 | A cursor gives leftovers to the NGO that has received the least so far, in one transaction |
 | **Add yourself, then log in** | Query **a** with your own name and number, run it, then log in on the website with that number | The ENROL row appears in query 1; the website greets you by name |
 

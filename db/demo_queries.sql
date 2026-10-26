@@ -77,16 +77,22 @@ ORDER BY booked DESC LIMIT 15;
 -- Show the database enforcing rules on its own (try these live):
 -- ---------------------------------------------------------------------
 
--- a) Add a student to the roster. Put YOUR number here, then log in on the website with it.
+-- a) Add a student to the roster. Put YOUR name and number here, run it, then log in on the website with it.
 --    Watch query 1: the ENROL row appears, written by trg_student_enrol.
--- INSERT INTO students (reg_no, full_name, gender, phone, email, programme_id, year_of_study, hostel_id, room_no, joined_on)
--- VALUES ('230100999', 'Your Name', 'F', '9876543210', 'you@muj.manipal.edu', 1, 3, 13, '214', '2023-07-24');
-
 --    hostel_id: 1-12 = B1-B12 (boys), 13-22 = G1-G10 (girls).
--- a2) The same insert with a man in a girls' hostel is refused by a trigger:
---     "This hostel is for the other gender". And CHECK constraints refuse a bad phone:
--- INSERT INTO students (reg_no, full_name, gender, phone, email, programme_id, year_of_study, joined_on)
--- VALUES ('230100998', 'Bad Phone', 'M', '12345', 'x@y.in', 1, 1, '2023-07-24');
+-- INSERT INTO students (reg_no, full_name, gender, phone, email, programme_id, year_of_study, hostel_id, room_no, joined_on)
+-- VALUES ('230100999', 'Your Name', 'F', '9876501234', 'you@muj.manipal.edu', 1, 3, 13, '214', '2023-07-24');
+
+-- a2) The database refuses bad data by itself. Run each one and read the error:
+--   a man in a girls' hostel (G1)  ->  trigger trg_student_check_ins: "This hostel is for the other gender"
+-- INSERT INTO students (reg_no, full_name, gender, phone, email, programme_id, year_of_study, hostel_id, room_no, joined_on)
+-- VALUES ('230100998', 'Wrong Hostel', 'M', '9876501235', 'w@muj.manipal.edu', 1, 1, 13, '101', '2023-07-24');
+--   year 6 of a 4-year B.Tech  ->  same trigger: "Year of study is outside this programme"
+-- INSERT INTO students (reg_no, full_name, gender, phone, email, programme_id, year_of_study, hostel_id, room_no, joined_on)
+-- VALUES ('230100997', 'Wrong Year', 'M', '9876501236', 'y@muj.manipal.edu', 1, 6, 1, '101', '2023-07-24');
+--   a 5-digit phone  ->  CHECK constraint chk_phone
+-- INSERT INTO students (reg_no, full_name, gender, phone, email, programme_id, year_of_study, hostel_id, room_no, joined_on)
+-- VALUES ('230100996', 'Bad Phone', 'M', '12345', 'p@muj.manipal.edu', 1, 1, 1, '101', '2023-07-24');
 
 -- b) UNIQUE key: a student can't hold two choices for the same meal
 --    (the website updates the row instead - see ON DUPLICATE KEY UPDATE in repo.py)
