@@ -2,14 +2,15 @@
 
 One annual fee and two messes (**BluDove** and **BluSpring**). Students book where they'll eat for every meal: breakfast, lunch, hi-tea and dinner. Each kitchen cooks for the people who booked, plus 30%. Staff mark who was served, and leftovers go to NGOs.
 
-An RDBMS project: **MySQL 8** (11 tables, 10 triggers, 3 stored procedures, 4 views) + **Python FastAPI** + a plain HTML/CSS/JS website.
+An RDBMS project: **MySQL 8** (14 tables, 12 triggers, 4 stored procedures, 1 function, 7 views, and a 1,200-student roster) + **Python FastAPI** + a plain HTML/CSS/JS website.
+
+**Taking this project over? Start with [HANDOVER.md](HANDOVER.md).**
 
 | Page | What it is |
 | --- | --- |
-| `index.html` | Student site: log in with phone + OTP, book meals, pause when going home |
+| `index.html` | Student site: log in with a code (SMS once Firebase is set up; any number works, new ones join the roster), book meals, pause when going home |
 | `staff.html` | Mess counter: mark students served, close a meal so leftovers go to NGOs |
-| `dashboard.html` | Live board: everything happening in MySQL, refreshing every 2 seconds |
-| `project.html` | **How it's built**: ER diagram, normalization, triggers, demo plan, viva answers |
+| `dashboard.html` | Mess ledger: each mess's profit, margin, waste and no-shows over 7 days, tomorrow's shopping plan, and the live MySQL feed (every 2 seconds) |
 
 ```
  Website (GitHub Pages)  ──HTTPS──►  API (FastAPI on Render)  ──TLS──►  MySQL (Aiven)  ◄──  Workbench
@@ -23,7 +24,7 @@ An RDBMS project: **MySQL 8** (11 tables, 10 triggers, 3 stored procedures, 4 vi
 1. Install **MySQL Server + Workbench** and **Python** (details in section A). Remember the MySQL root password.
 2. Download this project (**Code → Download ZIP**) and unzip it.
 3. Double-click **`setup.bat`**, press Enter 3 times, then type the MySQL root password.
-4. Double-click **`start.bat`**. The site opens at http://127.0.0.1:8000. That's the full system, offline.
+4. Double-click **`start.bat`**. The site opens at http://localhost:8000. That's the full system, offline.
 
 **One person, once, to put it online (~10 min):**
 5. Sign up at **aiven.io** → Create service → **MySQL** → **Free plan**. When it's running, copy the **Service URI** and click **CA certificate → Download**.
@@ -59,17 +60,18 @@ Password for root:           ← type your MySQL root password (nothing shows wh
 
 It then builds the `mess` database and prints a **Staff PIN**. Write the PIN down.
 
-**4. Double-click `start.bat`.** Keep that black window open. The browser opens http://127.0.0.1:8000.
+**4. Double-click `start.bat`.** Keep that black window open. The browser opens http://localhost:8000.
 
 | URL | |
 | --- | --- |
-| http://127.0.0.1:8000 | student site |
-| http://127.0.0.1:8000/dashboard.html | live board |
-| http://127.0.0.1:8000/staff.html | staff counter (needs the PIN) |
-| http://127.0.0.1:8000/project.html | how it's built |
-| http://127.0.0.1:8000/docs | interactive API docs (Swagger) |
+| http://localhost:8000 | student site |
+| http://localhost:8000/dashboard.html | live board |
+| http://localhost:8000/staff.html | staff counter (needs the PIN) |
+| http://localhost:8000/docs | interactive API docs (Swagger) |
 
-**5. (Optional) Double-click `demo.bat`.** It loads a realistic day: 80 students, bookings, pauses, attendance and donations, so every table and view has data to show.
+**5. (Optional) Double-click `demo.bat`.** It loads a realistic day for the roster: about 700 students' bookings, pauses, logins, attendance and donations, so every table and view has data to show.
+
+During a presentation, run **`python demo_data.py live`** (or `python demo_data.py cloud live`). It keeps making bookings, mess switches and serves every second or two, so the dashboard and Workbench keep moving. Ctrl+C stops it.
 
 `reset.bat` wipes the database and rebuilds it from scratch.
 
@@ -78,10 +80,10 @@ It then builds the `mess` database and prints a **Staff PIN**. Write the PIN dow
 1. Open Workbench, then click **⊕** next to *MySQL Connections*.
 2. Connection name: `MUJ Mess (local)` · Hostname `127.0.0.1` · Port `3306` · Username `root`. Click **OK**, then open it and enter the root password.
 3. **File → Open SQL Script →** `db\demo_queries.sql`.
-4. Do something on the website (log in, book, pause). Then click inside query 1 and press **Ctrl + Enter**. The new rows appear: SIGNUP, LOGIN, BOOK, PAUSE…
+4. Do something on the website (log in, book, pause). Then click inside query 1 and press **Ctrl + Enter**. The new rows appear: ENROL, LOGIN, BOOK, PAUSE…
 
    Workbench doesn't refresh on its own. Press Ctrl + Enter again after each action, and keep `dashboard.html` open beside it for a view that refreshes by itself.
-5. **ER diagram:** **Database → Reverse Engineer… →** pick the connection → select schema `mess` → Next until **Finish**. Workbench draws all 11 tables and their foreign keys.
+5. **ER diagram:** **Database → Reverse Engineer… →** pick the connection → select schema `mess` → Next until **Finish**. Workbench draws all 14 tables and their foreign keys.
 
 ## C. Put it online for everyone (one person, once)
 
@@ -102,7 +104,7 @@ This makes the website work from any phone, and all three laptops' Workbench sho
 1. Sign up at https://render.com with GitHub, and give it access to this repository.
 2. Open https://dashboard.render.com/blueprint/new → pick this repository.
 3. In the **MESS_SETTINGS** box, paste (Ctrl+V) → **Apply**. The first build takes 3–5 minutes.
-4. When it shows **Live**, open its address (like `https://mess-api-xxxx.onrender.com`). That address is the full website: student site, `/dashboard.html`, `/staff.html`, `/project.html`.
+4. When it shows **Live**, open its address (like `https://mess-api-xxxx.onrender.com`). That address is the full website: student site, `/dashboard.html`, `/staff.html`.
 5. *Optional:* so the github.io address also works, open `docs/config.js` on github.com (pencil icon), set `window.MESS_CLOUD_API = "https://mess-api-xxxx.onrender.com";` and commit. This also turns on the `keep-awake` ping, which stops the free server from sleeping during the day.
 
 **3. Workbench → cloud database (every laptop)**
@@ -116,8 +118,8 @@ On the **SSL** tab, set *Use SSL* to **Require**, and *SSL CA File* to `ca.pem`.
 - [ ] Open `<Render address>/health`. It should say ok (this also wakes the server, which can take up to a minute).
 - [ ] Double-click `demo_cloud.bat` (or `demo.bat` for the offline setup) so today has data.
 - [ ] Phone: the student site · Projector: `dashboard.html` · Laptop: Workbench with `demo_queries.sql`.
-- [ ] Backup: if the Wi-Fi fails, use `start.bat` on one laptop (section A). Everything works without internet.
-- [ ] Read `project.html` sections 10 and 11: who says what, and the likely viva questions.
+- [ ] Backup: if the Wi-Fi fails, use `start.bat` on one laptop (section A). Everything works offline except new logins, which need internet for the SMS. Log in on the demo phone beforehand: a logged-in session stays valid for 7 days.
+- [ ] Read `viva/project.html` sections 10 and 11: who says what, and the likely viva questions. (It's kept out of the public site.)
 
 ## Troubleshooting
 
@@ -135,20 +137,23 @@ On the **SSL** tab, set *Use SSL* to **Require**, and *SSL CA File* to `ca.pem`.
 
 ```
 db/schema.sql         tables, constraints, triggers, procedures, views
-db/seed.sql           2 messes, 4 meals, menus, 3 NGOs
+db/seed.sql           2 messes, 4 meals, menus, 12 programmes, 22 hostels (B1–B12, G1–G10), 3 NGOs
+db/students.csv       the student roster (1,200 fictional students; add real ones here)
 db/demo_queries.sql   open in Workbench during the demo
 backend/main.py       API endpoints (controller)
 backend/repo.py       every SQL statement, all parameterized (repository)
-backend/auth.py       OTP login, signed tokens, staff PIN
-backend/tests/        18 automated tests: run  backend\.venv\Scripts\python -m pytest -q backend\tests
-docs/                 the website (student, staff, dashboard, project pages)
+backend/auth.py       login (Firebase SMS -> roster check -> session token), staff PIN
+backend/firebase.py   checks Firebase's signed login token with Google's public keys
+backend/tests/        automated tests: run  backend\.venv\Scripts\python -m pytest -q backend\tests
+docs/                 the website (student, staff, dashboard, photo credits); docs/food/ = plate photos
+viva/project.html     how it's built: ER diagram, normalization, demo plan, viva answers (not published)
 setup.py              builds the database (local or cloud), used by setup.bat
 demo_data.py          loads a realistic day, used by demo.bat
 ```
 
 **Design decisions**
 - **Raw SQL, no ORM**, so every query, trigger and view can be seen and explained. All queries are parameterized.
-- **The OTP is shown on screen (demo mode).** Sending SMS in India needs DLT registration. Codes are still random, expire in 5 minutes, work once, and are stored only as a keyed hash.
+- **Real SMS login through Firebase.** Firebase sends and checks the code (no DLT paperwork needed). The API verifies Firebase's signed token, then only lets in phones that are on the `students` roster.
 - **The app's database user is `mess_app`**, with SELECT, INSERT, UPDATE and EXECUTE only. It has no DELETE, DROP or ALTER.
 - **India time everywhere.** Cloud servers run on UTC, so the API and every database session use `+05:30`.
 - **Donation rule:** leftover = unused 30% buffer + 50% of the no-shows' portions, capped at what's actually left. It's assigned to the NGO that has received the least so far.

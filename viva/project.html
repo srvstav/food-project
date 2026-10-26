@@ -78,8 +78,8 @@
 </head>
 <body>
 <header class="top">
-  <a class="logo" href="index.html">muj<em>mess</em></a>
-  <nav class="links"><a href="index.html">Student site</a><a href="dashboard.html">Live board</a><a href="staff.html">Staff counter</a></nav>
+  <a class="logo" href="../docs/index.html">muj<em>mess</em></a>
+  <nav class="links"><a href="../docs/index.html">Student site</a><a href="../docs/dashboard.html">Live board</a><a href="../docs/staff.html">Staff counter</a></nav>
 </header>
 
 <div class="wrap">
@@ -106,7 +106,7 @@
         <ul>
           <li>Pick <b>BluDove</b>, <b>BluSpring</b> or <b>skip</b>, for each of breakfast, lunch, hi-tea and dinner, up to 7 days ahead.</li>
           <li><b>Pause</b> the mess when going home. Those meals aren't cooked.</li>
-          <li>Log in with a phone number and a one-time code (OTP).</li>
+          <li>Log in with a phone number and a 6-digit code sent by SMS. Only students on the roster can get in.</li>
         </ul>
       </div>
       <div class="card">
@@ -158,6 +158,7 @@
           <line x1="865" y1="243" x2="865" y2="213" stroke="#15110E" stroke-width="2" marker-end="url(#ar)"/>
           <text x="10" y="40" font-size="14" fill="#6b5f55">Offline mode: start.bat runs the same API + site + MySQL on one laptop at http://127.0.0.1:8000</text>
         </g>
+        </g>
       </svg>
     </div>
     <div class="grid2" style="margin-top:22px">
@@ -171,11 +172,29 @@
     <h2><span class="n">03</span>ER diagram</h2>
     <p class="sub">Each arrow goes from a foreign key (the "many" side) to the primary key it points to (the "one" side). PK = primary key, FK = foreign key, UQ = unique.</p>
     <div class="card diagram scroll">
-      <svg viewBox="0 0 1000 640" style="min-width:760px" role="img" aria-label="Entity relationship diagram of the mess database">
+      <svg viewBox="0 0 1340 640" style="min-width:1000px" role="img" aria-label="Entity relationship diagram of the mess database">
         <defs><marker id="one" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#1E2BD6"/></marker></defs>
         <g stroke="#1E2BD6" stroke-width="2.2" fill="none" marker-end="url(#one)" opacity=".85">
+          <path d="M360 140 C 330 140, 330 96, 302 96"/>   <!-- students.programme_id -> programmes -->
+          <path d="M360 162 C 330 162, 330 300, 302 300"/> <!-- students.hostel_id -> hostels -->
+        </g>
+        <g font-family="ui-monospace, Consolas, Menlo, monospace" font-size="13">
+          <!-- programmes -->
+          <rect x="20" y="20" width="280" height="130" rx="12" fill="#FFFBF4" stroke="#1E2BD6" stroke-width="3"/>
+          <rect x="20" y="20" width="280" height="32" rx="12" fill="#1E2BD6"/><rect x="20" y="40" width="280" height="12" fill="#1E2BD6"/>
+          <text x="34" y="42" fill="#FFF3E0" font-weight="700" font-size="15">programmes</text>
+          <text x="34" y="74">PK id</text><text x="34" y="96">UQ code</text><text x="34" y="118">name · school</text><text x="34" y="140">years · CHECK 1–5</text>
+          <!-- hostels -->
+          <rect x="20" y="250" width="280" height="130" rx="12" fill="#FFFBF4" stroke="#1E2BD6" stroke-width="3"/>
+          <rect x="20" y="250" width="280" height="32" rx="12" fill="#1E2BD6"/><rect x="20" y="270" width="280" height="12" fill="#1E2BD6"/>
+          <text x="34" y="272" fill="#FFF3E0" font-weight="700" font-size="15">hostels</text>
+          <text x="34" y="304">PK id</text><text x="34" y="326">UQ name</text><text x="34" y="348">for_gender: M|F</text><text x="34" y="370">rooms</text>
+        </g>
+        <g transform="translate(340 0)">
+        <g stroke="#1E2BD6" stroke-width="2.2" fill="none" marker-end="url(#one)" opacity=".85">
+          <path d="M282 514 C 330 514, 330 170, 282 170"/> <!-- logins.student_id -> students -->
           <path d="M370 74 H282"/>                         <!-- bookings.student_id -> students -->
-          <path d="M150 230 V152"/>                        <!-- pauses.student_id -> students -->
+          <path d="M150 230 V218"/>                        <!-- pauses.student_id -> students -->
           <path d="M370 284 C 320 284, 330 110, 282 110"/> <!-- attendance.student_id -> students -->
           <path d="M632 118 C 680 118, 680 74, 718 74"/>   <!-- bookings.mess_id -> messes -->
           <path d="M632 96 C 690 96, 660 360, 718 360"/>   <!-- bookings.slot_id -> meal_slots -->
@@ -189,20 +208,20 @@
         </g>
         <g font-family="ui-monospace, Consolas, Menlo, monospace" font-size="13">
           <!-- students -->
-          <rect x="20" y="20" width="260" height="130" rx="12" fill="#FFFBF4" stroke="#15110E" stroke-width="2.5"/>
-          <rect x="20" y="20" width="260" height="32" rx="12" fill="#15110E"/><rect x="20" y="40" width="260" height="12" fill="#15110E"/>
-          <text x="34" y="42" fill="#FFF3E0" font-weight="700" font-size="15">students</text>
-          <text x="34" y="74">PK id</text><text x="34" y="96">UQ phone · CHECK regex</text><text x="34" y="118">created_at</text><text x="34" y="140">last_login_at</text>
+          <rect x="20" y="20" width="260" height="196" rx="12" fill="#FFFBF4" stroke="#FF4A1C" stroke-width="3"/>
+          <rect x="20" y="20" width="260" height="32" rx="12" fill="#FF4A1C"/><rect x="20" y="40" width="260" height="12" fill="#FF4A1C"/>
+          <text x="34" y="42" fill="#FFF3E0" font-weight="700" font-size="15">students (the roster)</text>
+          <text x="34" y="74">PK id · UQ reg_no</text><text x="34" y="96">UQ phone · UQ email</text><text x="34" y="118">full_name · gender</text><text x="34" y="140">FK programme_id · year</text><text x="34" y="162">FK hostel_id · room_no</text><text x="34" y="184">status · joined_on</text><text x="34" y="206" fill="#6b5f55">CHECK phone, reg_no, room</text>
           <!-- pauses -->
           <rect x="20" y="230" width="260" height="152" rx="12" fill="#FFFBF4" stroke="#15110E" stroke-width="2.5"/>
           <rect x="20" y="230" width="260" height="32" rx="12" fill="#15110E"/><rect x="20" y="250" width="260" height="12" fill="#15110E"/>
           <text x="34" y="252" fill="#FFF3E0" font-weight="700" font-size="15">pauses</text>
           <text x="34" y="284">PK id</text><text x="34" y="306">FK student_id</text><text x="34" y="328">from_date · to_date</text><text x="34" y="350">CHECK to ≥ from</text><text x="34" y="372">ended_on (resume)</text>
-          <!-- otp -->
-          <rect x="20" y="460" width="260" height="152" rx="12" fill="#FFFBF4" stroke="#15110E" stroke-width="2.5"/>
+          <!-- logins -->
+          <rect x="20" y="460" width="260" height="130" rx="12" fill="#FFFBF4" stroke="#15110E" stroke-width="2.5"/>
           <rect x="20" y="460" width="260" height="32" rx="12" fill="#15110E"/><rect x="20" y="480" width="260" height="12" fill="#15110E"/>
-          <text x="34" y="482" fill="#FFF3E0" font-weight="700" font-size="15">otp_codes</text>
-          <text x="34" y="514">PK id</text><text x="34" y="536">phone (no FK: before signup)</text><text x="34" y="558">code_hash (HMAC)</text><text x="34" y="580">expires_at · attempts</text><text x="34" y="602">used_at</text>
+          <text x="34" y="482" fill="#FFF3E0" font-weight="700" font-size="15">logins</text>
+          <text x="34" y="514">PK id</text><text x="34" y="536">FK student_id</text><text x="34" y="558">firebase_uid</text><text x="34" y="580">at</text>
           <!-- bookings -->
           <rect x="370" y="20" width="260" height="174" rx="12" fill="#FFFBF4" stroke="#FF4A1C" stroke-width="3"/>
           <rect x="370" y="20" width="260" height="32" rx="12" fill="#FF4A1C"/><rect x="370" y="40" width="260" height="12" fill="#FF4A1C"/>
@@ -254,9 +273,12 @@
         <tbody>
           <tr><td><code>messes</code></td><td>a mess (BluDove, BluSpring)</td><td>PK, UNIQUE name</td></tr>
           <tr><td><code>meal_slots</code></td><td>a meal with its time window</td><td>PK, UNIQUE code, CHECK ends &gt; starts</td></tr>
+          <tr><td><code>mess_costs</code></td><td>what one plate costs one mess to cook, per meal</td><td>composite PK (mess, slot), 2 FKs, CHECK cost &gt; 0</td></tr>
           <tr><td><code>menu_items</code></td><td>one dish of one mess at one meal</td><td>2 FKs, UNIQUE (mess, slot, dish)</td></tr>
-          <tr><td><code>students</code></td><td>a student, identified by phone</td><td>UNIQUE phone, CHECK 10-digit Indian mobile</td></tr>
-          <tr><td><code>otp_codes</code></td><td>one login code sent</td><td>only a keyed hash is stored; expiry; attempt counter</td></tr>
+          <tr><td><code>programmes</code></td><td>a degree (B.Tech CSE, BBA…) and how many years it lasts</td><td>PK, UNIQUE code, CHECK years 1–5</td></tr>
+          <tr><td><code>hostels</code></td><td>a hall of residence, for men or women</td><td>PK, UNIQUE name, ENUM for_gender</td></tr>
+          <tr><td><code>students</code></td><td>one student on the university roster (1,200 loaded from <code>db/students.csv</code>)</td><td>UNIQUE reg_no, phone, email · 2 FKs · CHECK phone, reg_no, room format · triggers check gender and year</td></tr>
+          <tr><td><code>logins</code></td><td>one successful login</td><td>FK student · the SMS code itself is checked by Firebase</td></tr>
           <tr><td><code>bookings</code></td><td>a student's choice for one meal on one day</td><td>3 FKs, UNIQUE (student, date, slot), ENUM status, CHECK status ↔ mess</td></tr>
           <tr><td><code>pauses</code></td><td>a period the student is away</td><td>FK, CHECK to ≥ from</td></tr>
           <tr><td><code>attendance</code></td><td>a student actually served</td><td>3 FKs, UNIQUE (student, date, slot): can't eat twice</td></tr>
@@ -269,7 +291,7 @@
     <div class="nf" style="margin-top:24px">
       <div><b>1NF: every cell holds one value.</b> Dishes are separate rows in <code>menu_items</code>, not a comma-separated list. Each student's 4 daily meals are 4 rows, not 4 columns.</div>
       <div><b>2NF: no column depends on only part of a key.</b> <code>bookings</code> is identified by (student, date, slot). The mess name isn't stored there, only <code>mess_id</code>, because the name depends on the mess and not on the booking.</div>
-      <div><b>3NF: no column depends on another non-key column.</b> A student's phone lives only in <code>students</code>, and meal times only in <code>meal_slots</code>. Counts like <code>cook_for</code> and <code>donate</code> are calculated in views, so they can never get out of sync.</div>
+      <div><b>3NF: no column depends on another non-key column.</b> A student's phone lives only in <code>students</code>, a hostel's gender only in <code>hostels</code>, and meal times only in <code>meal_slots</code>. There is no <code>last_login</code> column: it would repeat <code>MAX(logins.at)</code>, so the <code>v_student_directory</code> view works it out. Counts like <code>cook_for</code> and <code>donate</code> are calculated in views, so they can never get out of sync.</div>
     </div>
   </section>
 
@@ -282,7 +304,8 @@
         <thead><tr><th>Trigger</th><th>When</th><th>Does</th></tr></thead>
         <tbody>
           <tr><td><code>trg_booking_paused_ins</code> / <code>_upd</code></td><td>BEFORE INSERT / UPDATE on bookings</td><td>Refuses the booking with <code>SIGNAL SQLSTATE '45000'</code> if the student is paused that day. The API turns this into "Your mess is paused for this date".</td></tr>
-          <tr><td><code>trg_student_signup</code>, <code>trg_student_login</code></td><td>AFTER INSERT / UPDATE on students</td><td>Logs SIGNUP and LOGIN.</td></tr>
+          <tr><td><code>trg_student_check_ins</code> / <code>_upd</code></td><td>BEFORE INSERT / UPDATE on students</td><td>Calls <code>sp_check_student</code>: refuses a hostel meant for the other gender, or a year the programme doesn't have. A CHECK can't do this because it needs another table.</td></tr>
+          <tr><td><code>trg_student_enrol</code>, <code>trg_login_log</code></td><td>AFTER INSERT on students / logins</td><td>Logs ENROL (with programme and hostel) and LOGIN. Names go through <code>fn_short_name</code>, so the public feed shows “Aarav S.”, never a phone.</td></tr>
           <tr><td><code>trg_booking_log_ins</code>, <code>trg_booking_log_upd</code></td><td>AFTER INSERT / UPDATE on bookings</td><td>Logs BOOK, SKIPPED, CHANGE (old mess → new mess) and PAUSED.</td></tr>
           <tr><td><code>trg_pause_log</code>, <code>trg_resume_log</code></td><td>AFTER INSERT / UPDATE on pauses</td><td>Logs PAUSE and RESUME.</td></tr>
           <tr><td><code>trg_attendance_log</code></td><td>AFTER INSERT on attendance</td><td>Logs SERVED and marks walk-ins.</td></tr>
@@ -311,6 +334,10 @@
       <div class="card"><h3 style="margin-top:0"><code>sp_pause_mess(student, from, to)</code></h3><p>Adds the pause and changes every booking in that range to <code>paused</code>, so the kitchens stop counting the student. Both steps or neither.</p></div>
       <div class="card"><h3 style="margin-top:0"><code>sp_resume_mess(student, today)</code></h3><p>Ends running and future pauses from today, and turns released meals back into <code>skipped</code> so the student can book again.</p></div>
     </div>
+    <div class="grid2" style="margin-top:18px">
+      <div class="card"><h3 style="margin-top:0"><code>sp_check_student(gender, hostel, programme, year)</code></h3><p>Shared by both student triggers, so the rule is written once. Raises <code>SIGNAL SQLSTATE '45000'</code> with a plain message.</p></div>
+      <div class="card"><h3 style="margin-top:0"><code>fn_short_name(name)</code></h3><p>A stored <b>function</b> (it returns a value and can be used inside SELECT): 'Aarav Sharma' → 'Aarav S.'. Declared <code>DETERMINISTIC NO SQL</code>.</p></div>
+    </div>
     <div class="card" style="margin-top:18px"><h3 style="margin-top:0"><code>sp_close_meal(date, slot)</code></h3><p>Run by staff when a meal ends. A <b>cursor</b> loops over each mess's leftover in <code>v_meal_summary</code> and assigns it to the NGO that has received the <b>least so far</b>, so donations are spread fairly. Running it again recalculates instead of adding twice.</p></div>
 <pre><span class="k">CREATE PROCEDURE</span> sp_pause_mess(<span class="k">IN</span> p_student <span class="k">INT</span>, <span class="k">IN</span> p_from <span class="k">DATE</span>, <span class="k">IN</span> p_to <span class="k">DATE</span>)
 <span class="k">BEGIN</span>
@@ -334,6 +361,9 @@
           <tr><td><code>v_daily_forecast</code></td><td>booked heads and <b>cook_for = CEIL(booked × 1.3)</b> per mess and meal</td><td>JOIN, GROUP BY, COUNT, CEIL</td></tr>
           <tr><td><code>v_meal_summary</code></td><td>booked, cooked, served, no-shows, walk-ins, buffer left, donate</td><td>UNION, derived tables, LEFT JOIN, correlated EXISTS, GREATEST/LEAST</td></tr>
           <tr><td><code>v_live_bookings</code></td><td>everyone's choices, newest first</td><td>JOIN, LEFT JOIN, COALESCE</td></tr>
+          <tr><td><code>v_student_directory</code></td><td>the roster with programme, hostel, last login, meals booked and eaten</td><td>JOIN, LEFT JOIN, correlated subqueries, MAX, COUNT</td></tr>
+          <tr><td><code>v_mess_earnings</code></td><td>per mess per meal: revenue (served × paid_per_plate), food cost (cooked × cost_per_plate), profit, wasted plates</td><td>view on a view, 2 JOINs, LEFT JOIN, GREATEST, CAST to DECIMAL</td></tr>
+          <tr><td><code>v_hostel_split</code></td><td>which hostel eats at which mess, per meal</td><td>4-table JOIN, GROUP BY</td></tr>
           <tr><td><code>v_ngo_totals</code></td><td>deliveries and portions per NGO</td><td>LEFT JOIN, SUM, COUNT</td></tr>
         </tbody>
       </table>
@@ -350,7 +380,7 @@
     <p class="sub">What happens in about 50 ms when a student taps "BluSpring" for dinner.</p>
     <div class="card">
       <ol class="flow">
-        <li><div>The browser sends <code>POST /bookings</code> with the login token: <code>{meal_date, slot_id: 4, mess_id: 2}</code>.</div></li>
+        <li><div>The browser sends <code>POST /bookings</code> with the session token: <code>{meal_date, slot_id: 4, mess_id: 2}</code>.</div></li>
         <li><div>FastAPI checks the token signature and validates the body (date within 7 days, the meal and mess exist).</div></li>
         <li><div><code>repo.py</code> runs <code>INSERT … ON DUPLICATE KEY UPDATE</code> with parameters. The UNIQUE key means re-booking replaces the old choice.</div></li>
         <li><div>The <b>BEFORE</b> trigger checks for a pause. If the student is away, the whole statement is refused.</div></li>
@@ -366,25 +396,25 @@
     <div class="grid2">
       <div class="card"><h3 style="margin-top:0">SQL injection: not possible</h3><p>Every query in <code>repo.py</code> uses <code>%s</code> placeholders. Values are sent separately from the SQL text, so user input is never pasted into a query.</p></div>
       <div class="card"><h3 style="margin-top:0">Least privilege</h3><p>The API logs in as <code>mess_app</code>, which can only <code>SELECT, INSERT, UPDATE, EXECUTE</code>. It can't DELETE, DROP or ALTER anything.</p></div>
-      <div class="card"><h3 style="margin-top:0">OTPs are never stored</h3><p>Only an HMAC-SHA256 of each code is saved. Codes expire in 5 minutes, work once, and allow 5 tries. The demo shows the code on screen because sending SMS in India requires DLT registration.</p></div>
-      <div class="card"><h3 style="margin-top:0">Signed login tokens, staff PIN, masked phones</h3><p>Tokens are HMAC-signed and expire after 7 days. Staff actions need a PIN. The public dashboard shows phones as <code>98xxxxx210</code>.</p></div>
+      <div class="card"><h3 style="margin-top:0">Real SMS login, roster-only</h3><p>Firebase sends the SMS and checks the code. It hands the browser a signed token; the API checks that signature against Google's public keys, then looks the phone up in <code>students</code>. A number that isn't on the roster is refused. We never see or store the code.</p></div>
+      <div class="card"><h3 style="margin-top:0">Signed login tokens, staff PIN, masked phones</h3><p>Tokens are HMAC-signed and expire after 7 days. Staff actions need a PIN. The public dashboard and feed show short names, never phone numbers.</p></div>
     </div>
   </section>
 
   <!-- 10 DEMO -->
   <section>
     <h2><span class="n">10</span>Demo plan: 3 people, 6 minutes</h2>
-    <p class="sub">Before you start: open the student site on a phone, the live board on the projector, and Workbench with <code>db/demo_queries.sql</code> on a laptop. Run <code>demo.bat</code> once in the morning so the views have a full day of data.</p>
+    <p class="sub">Before you start: open the student site on a phone, the live board on the projector, and Workbench with <code>db/demo_queries.sql</code> on a laptop. Run <code>demo.bat</code> once in the morning so the views have a full day of data. During the demo, keep <code>python demo_data.py live</code> running so the board keeps moving.</p>
     <div class="roles">
       <div class="card role"><span class="who">Person 1 · student</span><h3>Booking (2 min)</h3><ul>
         <li>Explain the problem: same fee, two messes, two-month lock-in.</li>
-        <li>On a phone: number → OTP → BluSpring for dinner, skip hi-tea.</li>
+        <li>On a phone: number → SMS code → the site greets you by name from the roster → BluSpring for dinner, skip hi-tea.</li>
         <li>Point at the live board: the counter goes up.</li>
         <li>Pause tomorrow, then try to book tomorrow: refused.</li></ul></div>
       <div class="card role"><span class="who">Person 2 · database</span><h3>Workbench (2 min)</h3><ul>
         <li>Run query 1: the BOOK, SKIPPED, PAUSE rows just appeared.</li>
         <li>Show the ER diagram (Database → Reverse Engineer) and explain 3NF.</li>
-        <li>Run <code>INSERT INTO students (phone) VALUES ('12345');</code> and show the CHECK refusing it.</li>
+        <li>Enrol a new student with an <code>INSERT</code> (query a in <code>demo_queries.sql</code>): the ENROL row appears in the feed. Then put a man in a girls' hostel (G1–G10): the trigger refuses it.</li>
         <li>Open the paused-booking trigger and explain SIGNAL.</li></ul></div>
       <div class="card role"><span class="who">Person 3 · mess staff</span><h3>Counter and donations (2 min)</h3><ul>
         <li>On the staff page: serve a booked student (green), then a walk-in (yellow).</li>
@@ -407,9 +437,12 @@
       <details><summary>What happens if the server crashes in the middle of pausing?</summary><p><code>sp_pause_mess</code> is one transaction. Either the pause and all the booking updates are committed, or InnoDB rolls everything back. There's never a pause without its bookings released. That's atomicity, the A in ACID.</p></details>
       <details><summary>Why are cook_for and donate views and not columns?</summary><p>They are derived from other data. Storing them would duplicate facts and could go stale whenever a booking changes. That breaks 3NF and causes update anomalies. A view calculates them fresh on every query.</p></details>
       <details><summary>How do you prevent SQL injection?</summary><p>Parameterized queries. The SQL text has placeholders (<code>%s</code>) and the driver sends the values separately, so input like <code>' OR 1=1 --</code> is treated as a plain string, never as SQL.</p></details>
-      <details><summary>Which indexes did you add, and why?</summary><p>UNIQUE keys create indexes automatically. We also added <code>idx_forecast (meal_date, slot_id, mess_id, status)</code> to match the GROUP BY in the forecast view, <code>idx_otp_phone</code> for the latest-OTP lookup, and <code>idx_att_meal</code> for the attendance summary.</p></details>
+      <details><summary>Which indexes did you add, and why?</summary><p>UNIQUE keys create indexes automatically. We also added <code>idx_forecast (meal_date, slot_id, mess_id, status)</code> to match the GROUP BY in the forecast view, <code>idx_student_hostel</code> and <code>idx_student_programme</code> for the roster joins, and <code>idx_att_meal</code> for the attendance summary.</p></details>
       <details><summary>What is a walk-in and how is it detected?</summary><p>A student served at a mess where they didn't book. A correlated <code>EXISTS</code> subquery checks for a matching <code>booked</code> row. Walk-ins eat from the 30% buffer.</p></details>
-      <details><summary>Why doesn't otp_codes have a foreign key to students?</summary><p>An OTP is sent <i>before</i> the student exists: their first login creates the student row. So OTPs are keyed by phone. The same goes for activity_log: it's an audit history and must outlive changes to other tables.</p></details>
+      <details><summary>Why can't a CHECK constraint enforce “women's hostel only for women”?</summary><p>A CHECK can only look at the row being written. The hostel's gender lives in another table (<code>hostels</code>), so the rule needs a BEFORE trigger that reads it. We put the logic in <code>sp_check_student</code> and call it from both the INSERT and UPDATE triggers.</p></details>
+      <details><summary>Why are hostel_id and room_no NOT NULL?</summary><p>Every student lives on campus, so every roster row must say where. NOT NULL makes the database refuse a student without a hostel, and <code>CHECK (REGEXP_LIKE(room_no, '^[0-9]{3,4}$'))</code> refuses a malformed room number.</p></details>
+      <details><summary>Why doesn't activity_log have foreign keys?</summary><p>It's an audit history and must outlive changes to other tables.</p></details>
+      <details><summary>Where is the OTP stored?</summary><p>Nowhere in our database. Firebase sends and checks it. We store only the result: a row in <code>logins</code> saying which student logged in and when.</p></details>
       <details><summary>How is the NGO chosen in sp_close_meal?</summary><p>It's a <code>LEFT JOIN</code> of ngos to donations, grouped by NGO and ordered by <code>COALESCE(SUM(portions), 0)</code>, taking <code>LIMIT 1</code>. The NGO that has received the least gets the next donation. An NGO with nothing yet has a sum of 0 thanks to the LEFT JOIN.</p></details>
     </div>
   </section>
@@ -421,12 +454,13 @@
       <table>
         <tbody>
           <tr><td><code>db/schema.sql</code></td><td>all tables, triggers, procedures, views</td></tr>
-          <tr><td><code>db/seed.sql</code></td><td>2 messes, 4 meals, menus, 3 NGOs</td></tr>
+          <tr><td><code>db/seed.sql</code></td><td>2 messes, 4 meals, menus, 12 programmes, 22 hostels (B1–B12, G1–G10), 3 NGOs</td></tr>
+          <tr><td><code>db/students.csv</code></td><td>the roster: 1,200 fictional students (add real ones here or with INSERT)</td></tr>
           <tr><td><code>db/demo_queries.sql</code></td><td>open this in Workbench during the demo</td></tr>
           <tr><td><code>backend/main.py</code></td><td>API endpoints (controller)</td></tr>
           <tr><td><code>backend/repo.py</code></td><td>every SQL statement (repository)</td></tr>
-          <tr><td><code>backend/auth.py</code></td><td>OTP, login token, staff PIN</td></tr>
-          <tr><td><code>docs/</code></td><td>the website: student site, staff counter, live board, this page</td></tr>
+          <tr><td><code>backend/auth.py</code> · <code>firebase.py</code></td><td>SMS login check, session token, staff PIN</td></tr>
+          <tr><td><code>docs/</code></td><td>the website: student site, staff counter, live board</td></tr>
           <tr><td><code>setup.bat</code> · <code>start.bat</code> · <code>demo.bat</code> · <code>reset.bat</code></td><td>Windows: install, run, load sample day, wipe</td></tr>
           <tr><td><code>backend/tests/</code></td><td>automated tests for every rule above</td></tr>
         </tbody>
@@ -436,7 +470,7 @@
 </div>
 
 <footer>
-  <p><b>MUJ Mess</b> · MySQL 8 · Python FastAPI · HTML/CSS/JS · <a href="index.html">open the app</a> · <a href="dashboard.html">live board</a></p>
+  <p><b>MUJ Mess</b> · MySQL 8 · Python FastAPI · HTML/CSS/JS</p>
 </footer>
 </body>
 </html>

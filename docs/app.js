@@ -5,15 +5,15 @@ const $ = id => document.getElementById(id);
 const FALLBACK_MENU = { slots: [
   { slot_id: 1, name: "Breakfast", starts_at: "07:30", ends_at: "09:30", messes: [
     { mess_id: 1, name: "BluDove", dishes: ["Aloo Paratha", "Curd", "Masala Chai", "Banana"] },
-    { mess_id: 2, name: "BluSpring", dishes: ["Poha", "Boiled Eggs", "Bread Butter Jam", "Cold Coffee"] } ] },
+    { mess_id: 2, name: "BluSpring", dishes: ["Berry Pancakes", "Boiled Eggs", "Bread Butter Jam", "Cold Coffee"] } ] },
   { slot_id: 2, name: "Lunch", starts_at: "12:30", ends_at: "14:30", messes: [
     { mess_id: 1, name: "BluDove", dishes: ["Rajma", "Jeera Rice", "Tawa Roti", "Boondi Raita", "Salad"] },
     { mess_id: 2, name: "BluSpring", dishes: ["Chole", "Bhature", "Veg Pulao", "Lassi"] } ] },
   { slot_id: 3, name: "Hi-Tea", starts_at: "17:00", ends_at: "18:00", messes: [
     { mess_id: 1, name: "BluDove", dishes: ["Samosa", "Green Chutney", "Masala Chai"] },
-    { mess_id: 2, name: "BluSpring", dishes: ["Veg Sandwich", "Bhel Puri", "Lemon Tea"] } ] },
+    { mess_id: 2, name: "BluSpring", dishes: ["Pineapple Upside-down Cake", "Veg Sandwich", "Lemon Tea"] } ] },
   { slot_id: 4, name: "Dinner", starts_at: "19:30", ends_at: "21:30", messes: [
-    { mess_id: 1, name: "BluDove", dishes: ["Paneer Butter Masala", "Dal Tadka", "Butter Naan", "Steamed Rice", "Gulab Jamun"] },
+    { mess_id: 1, name: "BluDove", dishes: ["Farmhouse Pizza", "Veg Burger", "Garlic Bread", "Gulab Jamun"] },
     { mess_id: 2, name: "BluSpring", dishes: ["Dal Baati Churma", "Gatte ki Sabzi", "Chapati", "Kheer"] } ] },
 ] };
 
@@ -30,58 +30,235 @@ let menuPromise = null;
 const getMenu = () => (menuPromise ??= api("/menu").catch(() => { menuPromise = null; return FALLBACK_MENU; }));
 window.Mess = { getMenu, FALLBACK_MENU };
 
-/* ---------- login ---------- */
+/* ---------- login: Firebase sends the SMS and checks the code, our API checks the roster ---------- */
 
+const FIREBASE_SDK = "https://www.gstatic.com/firebasejs/11.0.2";
 let phone = "";
+let fb = null;            // { auth, mod } once the SDK has loaded
+let verifier = null;      // invisible reCAPTCHA, required by Firebase before it sends an SMS
+let confirmation = null;  // Firebase's handle for the code we just sent
+let resendTimer = 0;
+
+const FIREBASE_ERRORS = {
+  "auth/invalid-phone-number": "That number doesn't look right",
+  "auth/too-many-requests": "Too many tries from this device. Wait a while and try again",
+  "auth/missing-verification-code": "Enter the 6-digit code",
+  "auth/session-expired": "That code expired. Tap “Resend code”",
+  "auth/billing-not-enabled": "SMS sending isn't switched on yet (Firebase needs the Blaze plan, HANDOVER.md step 3)",
+  "auth/invalid-app-credential": "Couldn't verify this browser. Reload the page and try again",
+  "auth/web-storage-unsupported": "Turn off private browsing to log in",
+  "auth/quota-exceeded": "SMS limit reached for today. Try again tomorrow",
+  "auth/invalid-verification-code": "Wrong code. Check the SMS and try again",
+  "auth/code-expired": "That code expired. Tap “Resend code”",
+  "auth/captcha-check-failed": "This website isn't authorized for SMS login yet (Firebase → Authorized domains)",
+  "auth/operation-not-allowed": "Phone sign-in is switched off in Firebase",
+  "auth/network-request-failed": "No internet connection",
+};
+// No Firebase config yet = demo mode: the server makes the code and the page shows it.
+const firebaseReady = () => Boolean(window.MESS_FIREBASE?.apiKey && window.MESS_FIREBASE?.projectId);
+let demoCode = "";
+
+const fbError = e => new Error(FIREBASE_ERRORS[e?.code] || e?.message || "Something went wrong");
+
+async function firebaseAuth() {
+  if (fb) return fb;
+  const cfg = window.MESS_FIREBASE;
+  if (!cfg?.apiKey || !cfg?.projectId) throw new Error("SMS login isn't set up yet (HANDOVER.md, step 3)");
+  // Loaded only when someone logs in, so the page itself stays light.
+  const [{ initializeApp }, mod] = await Promise.all([
+    import(`${FIREBASE_SDK}/firebase-app.js`),
+    import(`${FIREBASE_SDK}/firebase-auth.js`),
+  ]);
+  const auth = mod.getAuth(initializeApp(cfg));
+  auth.languageCode = "en";
+  return (fb = { auth, mod });
+}
+
+async function sendCode() {
+  const { auth, mod } = await firebaseAuth();
+  verifier ??= new mod.RecaptchaVerifier(auth, "recaptcha", { size: "invisible" });
+  try {
+    confirmation = await mod.signInWithPhoneNumber(auth, `+91${phone}`, verifier);
+  } catch (e) {
+    verifier.clear();  // a used or failed reCAPTCHA can't be reused
+    verifier = null;
+    $("recaptcha").replaceChildren();
+    throw fbError(e);
+  }
+  startResendCountdown();
+}
+
+function startResendCountdown(seconds = 30) {
+  clearInterval(resendTimer);
+  const btn = $("resend");
+  btn.disabled = true;
+  const tick = () => {
+    btn.textContent = seconds > 0 ? `Resend code in ${seconds}s` : "Resend code";
+    if (seconds-- <= 0) { btn.disabled = false; clearInterval(resendTimer); }
+  };
+  tick();
+  resendTimer = setInterval(tick, 1000);
+}
 
 function show(step) {
+  const next = $(step);
   for (const id of ["step-phone", "step-otp", "step-book"]) $(id).hidden = id !== step;
+  next.classList.remove("enter"); void next.offsetWidth; next.classList.add("enter");
 }
 
-async function withBusy(btn, fn) {
+// Errors on the login steps appear inside the panel (not a toast), right where the person is looking.
+function say(id, msg) {
+  $(id).textContent = msg || "";
+  $(id).hidden = !msg;
+}
+
+async function withBusy(btn, fn, msgId) {
   btn.disabled = true;
-  try { await fn(); } catch (e) { toast(e.message); } finally { btn.disabled = false; }
+  btn.classList.add("busy");
+  if (msgId) say(msgId, "");
+  try { await fn(); }
+  catch (e) { msgId ? say(msgId, e.message) : toast(e.message); }
+  finally { btn.disabled = false; btn.classList.remove("busy"); }
 }
 
-$("phone").addEventListener("input", e => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10); });
-$("otp").addEventListener("input", e => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 6); });
+const pretty = p => `+91 ${p.slice(0, 5)} ${p.slice(5)}`;
+
+/* ---------- the six boxes ---------- */
+
+const boxes = [...document.querySelectorAll(".otp-boxes span")];
+boxes.forEach((b, i) => b.style.setProperty("--i", i));
+function paintBoxes() {
+  const v = $("otp").value;
+  boxes.forEach((b, i) => {
+    b.textContent = v[i] || "";
+    b.classList.toggle("filled", i < v.length);
+    b.classList.toggle("next", i === Math.min(v.length, 5) && v.length < 6);
+  });
+}
+function otpState(state) {  // "" | "wrong" | "right"
+  const wrap = $("otp-wrap");
+  wrap.classList.remove("wrong", "right"); void wrap.offsetWidth;
+  if (state) wrap.classList.add(state);
+}
+
+$("phone").addEventListener("input", e => {
+  e.target.value = e.target.value.replace(/\D/g, "").replace(/^(91|0)(?=\d{10}$)/, "").slice(0, 10);
+  say("phone-msg", "");
+});
+$("otp").addEventListener("input", e => {
+  e.target.value = e.target.value.replace(/\D/g, "").slice(0, 6);
+  otpState("");
+  say("otp-msg", "");
+  paintBoxes();
+  if (e.target.value.length === 6) $("otp-form").requestSubmit();  // typing the last digit, paste or SMS autofill logs straight in
+});
+$("otp").addEventListener("focus", () => $("otp-wrap").classList.add("focus"));
+$("otp").addEventListener("blur", () => $("otp-wrap").classList.remove("focus"));
+
+/* ---------- step 1: number ---------- */
 
 $("phone-form").addEventListener("submit", e => {
   e.preventDefault();
   const value = $("phone").value.trim();
-  if (!/^[6-9]\d{9}$/.test(value)) return toast("Enter a 10-digit Indian mobile number");
+  if (!/^[6-9]\d{9}$/.test(value)) return say("phone-msg", "Enter your 10-digit mobile number");
   withBusy(e.target.querySelector("button[type=submit]"), async () => {
-    const res = await api("/auth/request-otp", { method: "POST", body: { phone: value } });
+    // Ask our server first, so no SMS is spent on a number that can't log in anyway.
+    const res = await api("/auth/check", { method: "POST", body: { phone: value } });
     phone = value;
-    $("otp-phone").textContent = phone;
-    $("dev-otp").hidden = !res.dev_otp;
-    $("dev-otp").textContent = res.dev_otp ? `Demo mode - no SMS yet. Your OTP is ${res.dev_otp}` : "";
+    if (firebaseReady()) await sendCode();
+    else showDemoCode(res.demo_code);
+    $("otp-phone").textContent = pretty(phone);
     $("otp").value = "";
+    otpState("");
+    paintBoxes();
+    say("otp-msg", "");
     show("step-otp");
     $("otp").focus();
-  });
+  }, "phone-msg");
 });
+
+/* ---------- step 2: code ---------- */
 
 $("otp-form").addEventListener("submit", e => {
   e.preventDefault();
   const otp = $("otp").value.trim();
-  if (!/^\d{6}$/.test(otp)) return toast("The OTP is 6 digits");
-  withBusy(e.target.querySelector("button[type=submit]"), async () => {
-    const res = await api("/auth/verify-otp", { method: "POST", body: { phone, otp } });
+  if (!/^\d{6}$/.test(otp)) return say("otp-msg", "The code is 6 digits");
+  const btn = e.target.querySelector("button[type=submit]");
+  if (btn.disabled) return;  // autofill and a tap can both submit
+  withBusy(btn, async () => {
+    const wrong = err => {
+      otpState("wrong");
+      $("otp").value = "";
+      paintBoxes();
+      $("otp").focus();
+      return err;
+    };
+    let res;
+    if (firebaseReady()) {
+      let idToken;
+      try {
+        const cred = await confirmation.confirm(otp);
+        idToken = await cred.user.getIdToken();
+      } catch (err) {
+        throw wrong(fbError(err));
+      }
+      otpState("right");
+      res = await api("/auth/login", { method: "POST", body: { id_token: idToken } });
+      fb.mod.signOut(fb.auth).catch(() => {});  // our own token is the session from here on
+    } else {
+      try {
+        res = await api("/auth/demo-verify", { method: "POST", body: { phone, otp } });
+      } catch (err) {
+        throw wrong(err);
+      }
+      otpState("right");
+    }
+    clearInterval(resendTimer);
     store.set("mess_token", res.token);
-    store.set("mess_phone", res.phone);
-    await openBooking();
-    toast("You're in. Pick your meals.");
-  });
+    store.set("mess_me", JSON.stringify(res.student));
+    await new Promise(r => setTimeout(r, 450));  // let the green tick register before the page changes
+    await openBooking(res.student);
+    toast(`Welcome, ${res.student.full_name.split(" ")[0]}. Pick your meals.`);
+  }, "otp-msg");
 });
 
-$("back").addEventListener("click", () => show("step-phone"));
+$("resend").addEventListener("click", e => withBusy(e.currentTarget, async () => {
+  if (firebaseReady()) await sendCode();
+  else showDemoCode((await api("/auth/check", { method: "POST", body: { phone } })).demo_code);
+  $("otp").value = "";
+  otpState("");
+  paintBoxes();
+  $("otp").focus();
+  toast(`New code sent to ${pretty(phone)}`);
+}, "otp-msg"));
+
+function showDemoCode(code) {
+  demoCode = code || "";
+  $("demo-code").hidden = !demoCode;
+  $("demo-code").innerHTML = "";
+  if (!demoCode) return;
+  const b = document.createElement("b");
+  b.textContent = demoCode;
+  $("demo-code").append("Demo mode (no SMS set up yet). Your code: ", b);
+  startResendCountdown();
+}
+
+const backToPhone = () => { clearInterval(resendTimer); show("step-phone"); $("phone").focus(); };
+$("back").addEventListener("click", backToPhone);
+$("edit-phone").addEventListener("click", backToPhone);
 $("logout").addEventListener("click", logout);
 
 function logout() {
   store.del("mess_token");
-  store.del("mess_phone");
+  store.del("mess_me");
   show("step-phone");
+}
+
+function renderMe(me) {
+  if (!me) return;
+  $("me-name").textContent = me.full_name;
+  $("me-meta").textContent = [me.reg_no, `${me.programme} · year ${me.year_of_study}`,
+    `${me.hostel}, room ${me.room_no}`].join(" · ");
 }
 
 /* ---------- booking ---------- */
@@ -112,9 +289,9 @@ function renderDays() {
   }
 }
 
-async function openBooking() {
+async function openBooking(me) {
   selectedDate ??= istDay(0);
-  $("me-phone").textContent = "+91 " + (store.get("mess_phone") || "");
+  renderMe(me);
   $("pause-from").min = $("pause-to").min = istDay(0);
   $("pause-from").value ||= istDay(1);
   $("pause-to").value ||= istDay(3);
@@ -132,11 +309,15 @@ async function renderSlots() {
   $("paused-banner").hidden = !mine.paused;
   const root = $("slots");
   root.replaceChildren();
+  // Cards fly in when the day changes, not on every re-render after a booking.
+  root.classList.toggle("fresh", root.dataset.day !== selectedDate);
+  root.dataset.day = selectedDate;
 
-  for (const slot of menu.slots) {
+  for (const [i, slot] of menu.slots.entries()) {
     const current = chosen[slot.slot_id];
     const el = document.createElement("div");
     el.className = "slot" + (mine.paused ? " is-paused" : "");
+    el.style.setProperty("--i", i);
 
     const head = document.createElement("div");
     head.className = "slot-head";
@@ -157,7 +338,7 @@ async function renderSlots() {
       b.setAttribute("aria-pressed", String(current?.mess_id === mess.mess_id));
       const mini = document.createElement("span");
       mini.className = "mini";
-      mini.innerHTML = window.plateSVG(mess.dishes); // our own SVG; dish names are escaped inside
+      mini.innerHTML = window.plateHTML(mess.dishes, { small: true }); // dish names are escaped inside
       const text = document.createElement("span");
       const name = document.createElement("span");
       name.className = "name";
@@ -189,7 +370,7 @@ async function book(slot, messId) {
   try {
     await api("/bookings", { method: "POST", body: { meal_date: selectedDate, slot_id: slot.slot_id, mess_id: messId } });
     const mess = slot.messes.find(m => m.mess_id === messId);
-    toast(mess ? `${slot.name} → ${mess.name}. Saved to MySQL.` : `${slot.name} skipped. You won't be counted.`);
+    toast(mess ? `${slot.name} → ${mess.name}. Saved.` : `${slot.name} skipped. You won't be counted.`);
     await renderSlots();
     refreshLive();
   } catch (e) {
@@ -283,5 +464,10 @@ async function refreshLive() {
 refreshLive();
 setInterval(refreshLive, 5000);
 
-// Resume a saved session.
-if (store.get("mess_token")) openBooking().catch(() => show("step-phone"));
+// Resume a saved session: show the saved profile at once, then refresh it from the roster.
+if (store.get("mess_token")) {
+  let saved = null;
+  try { saved = JSON.parse(store.get("mess_me")); } catch {}
+  openBooking(saved).catch(() => show("step-phone"));
+  api("/me").then(r => { store.set("mess_me", JSON.stringify(r.student)); renderMe(r.student); }).catch(() => {});
+}

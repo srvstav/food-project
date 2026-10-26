@@ -15,7 +15,7 @@ from pymysql.connections import Connection
 
 import auth
 import repo
-from config import settings, today
+from config import now, settings, today
 from db import get_conn
 
 log = logging.getLogger("uvicorn.error")
@@ -47,13 +47,17 @@ async def db_rule_violation(_: Request, exc: pymysql.err.OperationalError) -> JS
 
 # ---------- request bodies ----------
 
-class OtpRequest(BaseModel):
+class PhoneIn(BaseModel):
     phone: Phone
 
 
-class OtpVerify(BaseModel):
+class DemoVerifyIn(BaseModel):
     phone: Phone
     otp: Annotated[str, Field(pattern=r"^\d{6}$")]
+
+
+class LoginIn(BaseModel):
+    id_token: Annotated[str, Field(min_length=20, max_length=4096, description="Firebase ID token")]
 
 
 class BookingIn(BaseModel):
@@ -98,20 +102,36 @@ def health(conn: Conn) -> dict[str, str]:
 
 # ---------- login ----------
 
-@app.post("/auth/request-otp", tags=["login"])
-def request_otp(body: OtpRequest, conn: Conn) -> dict[str, str]:
-    code = auth.issue_otp(conn, body.phone)
-    if settings.otp_mode == "dev":
-        print(f"[OTP] {body.phone} -> {code}", flush=True)
-        # TODO(debt): no SMS gateway yet (India needs DLT registration) — the page shows the code instead.
-        return {"message": "OTP sent", "dev_otp": code}
-    raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, "SMS sending not set up yet")
+@app.post("/auth/check", tags=["login"])
+def check(body: PhoneIn, request: Request, conn: Conn) -> dict:
+    """Asked before the code is sent: rate-limits, and in demo mode returns the code. Any number may log in."""
+    on_roster = auth.check_roster(conn, body.phone, request.client.host if request.client else "?")
+    if on_roster and auth.demo_mode():
+        # Demo mode (no Firebase yet): hand back the code instead of texting it.
+        return {"on_roster": True, "demo_code": auth.demo_send(body.phone)}
+    return {"on_roster": on_roster}
 
 
-@app.post("/auth/verify-otp", tags=["login"])
-def verify_otp(body: OtpVerify, conn: Conn) -> dict[str, str]:
-    student_id = auth.verify_otp(conn, body.phone, body.otp)
-    return {"token": auth.make_token(student_id), "phone": body.phone}
+@app.post("/auth/demo-verify", tags=["login"])
+def demo_verify(body: DemoVerifyIn, conn: Conn) -> dict:
+    """Demo mode only: check the on-screen code and start a session."""
+    student_id = auth.demo_login(conn, body.phone, body.otp)
+    return {"token": auth.make_token(student_id), "student": repo.profile(conn, student_id)}
+
+
+@app.post("/auth/login", tags=["login"])
+def login(body: LoginIn, conn: Conn) -> dict:
+    """The browser sends the SMS through Firebase, then posts Firebase's ID token here."""
+    student_id = auth.login(conn, body.id_token)
+    return {"token": auth.make_token(student_id), "student": repo.profile(conn, student_id)}
+
+
+@app.get("/me", tags=["login"])
+def me(student_id: StudentId, conn: Conn) -> dict:
+    student = repo.profile(conn, student_id)
+    if student is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Please log in again")
+    return {"student": student}
 
 
 # ---------- student ----------
@@ -180,7 +200,7 @@ def staff_serve(body: ServeIn, _: Staff, conn: Conn) -> dict:
     """Record that a student ate. Works for walk-ins too; they come out of the 30% buffer."""
     student = repo.student_by_phone(conn, body.phone)
     if student is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "No student with this number — they must log in once first")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No student on the roster with this number")
     if not repo.slot_exists(conn, body.slot_id) or not repo.mess_exists(conn, body.mess_id):
         raise _bad("Unknown meal or mess")
     t = today()
@@ -192,6 +212,7 @@ def staff_serve(body: ServeIn, _: Staff, conn: Conn) -> dict:
     booked_here = bool(booking and booking["status"] == "booked" and booking["mess_id"] == body.mess_id)
     return {
         "served": True,
+        "name": student["full_name"],
         "booked_here": booked_here,
         "booking": booking["mess"] if booking and booking["mess"] else (booking["status"] if booking else "none"),
     }
@@ -224,6 +245,10 @@ def live(conn: Conn, limit: int = Query(default=25, ge=1, le=100)) -> dict:
         "meal_date": t,
         "activity": activity,
         "summary": repo.meal_summary(conn, t),
+        "roster": repo.roster_counts(conn),
+        "earnings": repo.earnings(conn, t, now().strftime("%H:%M:%S")),
+        "tomorrow": repo.forecast(conn, t + timedelta(days=1)),
+        "hostels": repo.hostel_split(conn, t),
         "donations": repo.donations_on(conn, t),
         "ngos": repo.ngo_totals(conn),
     }
@@ -232,6 +257,15 @@ def live(conn: Conn, limit: int = Query(default=25, ge=1, le=100)) -> dict:
 @app.get("/admin", include_in_schema=False)
 def admin_redirect() -> RedirectResponse:
     return RedirectResponse("/dashboard.html")
+
+
+@app.middleware("http")
+async def always_fresh_site(request: Request, call_next):
+    """Browsers must re-check pages and scripts each visit (a 304 if unchanged), so an update shows at once."""
+    response = await call_next(request)
+    if request.url.path == "/" or request.url.path.endswith((".html", ".js", ".css")):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 # The same site that GitHub Pages serves, so the whole system also runs offline from one laptop.

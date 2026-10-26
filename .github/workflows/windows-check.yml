@@ -46,7 +46,7 @@ jobs:
       - name: Every page and endpoint answers
         shell: pwsh
         run: |
-          foreach ($p in "/", "/dashboard.html", "/staff.html", "/project.html", "/docs", "/menu", "/stats/today", "/admin/live") {
+          foreach ($p in "/", "/dashboard.html", "/staff.html", "/credits.html", "/docs", "/menu", "/stats/today", "/admin/live") {
             $code = (Invoke-WebRequest "http://127.0.0.1:8000$p" -UseBasicParsing).StatusCode
             "$code  $p"
             if ($code -ne 200) { throw "$p returned $code" }
@@ -54,17 +54,22 @@ jobs:
           $menu = Invoke-RestMethod http://127.0.0.1:8000/menu
           if ($menu.slots.Count -ne 4) { throw "menu should have 4 meals" }
 
-      - name: Full booking flow over HTTP (login, book, pause, staff serve, close meal)
+      - name: Full booking flow over HTTP (session, book, staff serve, close meal)
         shell: pwsh
         run: |
           $api = "http://127.0.0.1:8000"
-          $otp = (Invoke-RestMethod "$api/auth/request-otp" -Method Post -ContentType "application/json" -Body '{"phone":"9876500001"}').dev_otp
-          $tok = (Invoke-RestMethod "$api/auth/verify-otp" -Method Post -ContentType "application/json" -Body (@{phone="9876500001"; otp=$otp} | ConvertTo-Json)).token
+          # SMS login needs a real phone, so CI skips it: /auth/login must refuse junk, and the
+          # Firebase token check itself is covered by the automated tests. The session is minted directly
+          # for roster student 1 (phone 7000000001 in db/students.csv).
+          $bad = try { Invoke-WebRequest "$api/auth/login" -Method Post -ContentType "application/json" -Body '{"id_token":"not-a-real-firebase-token"}' -UseBasicParsing } catch { $_.Exception.Response }
+          if ([int]$bad.StatusCode -lt 400) { throw "/auth/login accepted a fake token" }
+          $tok = (& backend\.venv\Scripts\python.exe -c "import sys; sys.path.insert(0, 'backend'); import auth; print(auth.make_token(1))").Trim()
           $h = @{ Authorization = "Bearer $tok" }
+          "logged in as: $((Invoke-RestMethod "$api/me" -Headers $h).student.full_name)"
           $today = (Invoke-RestMethod "$api/health").today
           Invoke-RestMethod "$api/bookings" -Method Post -Headers $h -ContentType "application/json" -Body (@{meal_date=$today; slot_id=4; mess_id=2} | ConvertTo-Json) | Out-Null
           $pin = (Get-Content backend\.env | Where-Object { $_ -like "STAFF_PIN=*" }).Split("=")[1]
-          $s = Invoke-RestMethod "$api/staff/serve" -Method Post -Headers @{ "X-Staff-Pin" = $pin } -ContentType "application/json" -Body '{"phone":"9876500001","mess_id":2,"slot_id":4}'
+          $s = Invoke-RestMethod "$api/staff/serve" -Method Post -Headers @{ "X-Staff-Pin" = $pin } -ContentType "application/json" -Body '{"phone":"7000000001","mess_id":2,"slot_id":4}'
           if (-not $s.booked_here) { throw "serve should say booked here" }
           Invoke-RestMethod "$api/staff/close-meal" -Method Post -Headers @{ "X-Staff-Pin" = $pin } -ContentType "application/json" -Body (@{meal_date=$today; slot_id=4} | ConvertTo-Json) | Out-Null
           $live = Invoke-RestMethod "$api/admin/live"

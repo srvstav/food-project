@@ -3,9 +3,12 @@
 PyMySQL only %-formats a query when parameters are passed (args is not None), so a literal %
 is written as %% in queries with parameters and as % in queries without.
 """
-from datetime import date, datetime
+from datetime import date
 from typing import Any
 
+import secrets
+
+import pymysql
 from pymysql.connections import Connection
 
 Row = dict[str, Any]
@@ -28,37 +31,49 @@ def _exec(conn: Connection, sql: str, args: tuple | None = None) -> int:
         return cur.execute(sql, args)
 
 
-# ---------- OTP and students ----------
-
-def latest_otp(conn: Connection, phone: str) -> Row | None:
-    return _one(conn, "SELECT id, code_hash, expires_at, attempts, used_at, created_at "
-                      "FROM otp_codes WHERE phone = %s ORDER BY id DESC LIMIT 1", (phone,))
-
-
-def insert_otp(conn: Connection, phone: str, code_hash: str, created_at: datetime, expires_at: datetime) -> None:
-    _exec(conn, "INSERT INTO otp_codes (phone, code_hash, created_at, expires_at) VALUES (%s, %s, %s, %s)",
-          (phone, code_hash, created_at, expires_at))
-
-
-def bump_otp_attempts(conn: Connection, otp_id: int) -> None:
-    _exec(conn, "UPDATE otp_codes SET attempts = attempts + 1 WHERE id = %s", (otp_id,))
-
-
-def mark_otp_used(conn: Connection, otp_id: int) -> None:
-    _exec(conn, "UPDATE otp_codes SET used_at = CURRENT_TIMESTAMP(3) WHERE id = %s", (otp_id,))
-
-
-def login_student(conn: Connection, phone: str) -> int:
-    """Create the student on first login, then stamp last_login_at (fires the LOGIN trigger)."""
-    _exec(conn, "INSERT IGNORE INTO students (phone) VALUES (%s)", (phone,))
-    _exec(conn, "UPDATE students SET last_login_at = CURRENT_TIMESTAMP(3) WHERE phone = %s", (phone,))
-    row = _one(conn, "SELECT id FROM students WHERE phone = %s", (phone,))
-    assert row is not None
-    return int(row["id"])
-
+# ---------- students (the roster) ----------
 
 def student_by_phone(conn: Connection, phone: str) -> Row | None:
-    return _one(conn, "SELECT id, phone FROM students WHERE phone = %s", (phone,))
+    return _one(conn, "SELECT id, full_name, status FROM students WHERE phone = %s", (phone,))
+
+
+def enrol_guest(conn: Connection, phone: str) -> None:
+    """A number that isn't on the roster joins it on first login (fires the ENROL trigger).
+    Placeholder details, so a demo never stops at the door; the mess office can correct them later."""
+    for reg_no in (f"9{phone[2:]}", f"98{secrets.randbelow(10**7):07d}"):  # second try only if the first is taken
+        try:
+            _exec(conn,
+                "INSERT INTO students (reg_no, full_name, gender, phone, email, programme_id, year_of_study, "
+                "hostel_id, room_no, joined_on) VALUES (%s, %s, 'M', %s, %s, 1, 1, 1, '100', CURRENT_DATE)",
+                (reg_no, f"Guest {phone[-4:]}", phone, f"guest.{phone}@muj.manipal.edu"))
+            return
+        except pymysql.err.IntegrityError:
+            continue
+
+
+def record_login(conn: Connection, student_id: int, firebase_uid: str) -> None:
+    _exec(conn, "INSERT INTO logins (student_id, firebase_uid) VALUES (%s, %s)", (student_id, firebase_uid))
+
+
+def profile(conn: Connection, student_id: int) -> Row | None:
+    return _one(conn,
+        "SELECT reg_no, full_name, phone, programme, year_of_study, hostel, room_no, meals_booked, meals_eaten "
+        "FROM v_student_directory WHERE id = %s", (student_id,))
+
+
+def roster_counts(conn: Connection) -> Row:
+    row = _one(conn,
+        "SELECT COUNT(*) AS students, COUNT(DISTINCT hostel_id) AS hostels, "
+        "(SELECT COUNT(DISTINCT student_id) FROM logins) AS logged_in "
+        "FROM students WHERE status = 'active'")
+    assert row is not None
+    return {k: int(v or 0) for k, v in row.items()}
+
+
+def hostel_split(conn: Connection, meal_date: date) -> list[Row]:
+    return _all(conn,
+        "SELECT hostel, mess, SUM(booked) AS booked FROM v_hostel_split WHERE meal_date = %s "
+        "GROUP BY hostel_id, hostel, mess ORDER BY hostel_id, mess", (meal_date,))
 
 
 # ---------- menu ----------
@@ -147,6 +162,16 @@ def donations_on(conn: Connection, meal_date: date) -> list[Row]:
         "SELECT d.slot_id, ms.name AS meal, m.name AS mess, n.name AS ngo, n.area, d.portions "
         "FROM donations d JOIN messes m ON m.id = d.mess_id JOIN meal_slots ms ON ms.id = d.slot_id "
         "JOIN ngos n ON n.id = d.ngo_id WHERE d.meal_date = %s ORDER BY d.slot_id, d.mess_id", (meal_date,))
+
+
+def earnings(conn: Connection, today: date, now_time: str, days: int = 7) -> list[Row]:
+    """Profit per mess per meal for the last `days` days. Today counts only meals that have started,
+    so a dinner that hasn't been served yet doesn't show up as a loss."""
+    return _all(conn,
+        "SELECT meal_date, mess_id, mess, slot_id, meal, booked, cooked, served, no_shows, donated, wasted, "
+        "revenue, food_cost, profit FROM v_mess_earnings "
+        "WHERE meal_date BETWEEN %s - INTERVAL %s DAY AND %s AND (meal_date < %s OR starts_at <= %s) "
+        "ORDER BY meal_date, slot_id, mess_id", (today, days - 1, today, today, now_time))
 
 
 def ngo_totals(conn: Connection) -> list[Row]:

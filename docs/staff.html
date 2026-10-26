@@ -6,7 +6,7 @@
 <title>Mess Staff Counter</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="tools.css">
 </head>
 <body>
@@ -112,9 +112,9 @@
     btn.disabled = true;
     try {
       const r = await staff("/staff/serve", { method: "POST", body: { phone, mess_id: +$("mess").value, slot_id: +$("slot").value } });
-      if (r.booked_here) showResult("ok", "Booked here - serve ✓", `+91 ${phone}`);
+      if (r.booked_here) showResult("ok", "Booked here - serve ✓", `${r.name} · +91 ${phone}`);
       else showResult("walk", "Walk-in - serve from the buffer",
-        r.booking === "none" ? "No booking for this meal" : `Their booking: ${r.booking}`);
+        `${r.name} · ` + (r.booking === "none" ? "no booking for this meal" : `their booking: ${r.booking}`));
       $("phone").value = "";
       refresh();
     } catch (err) {

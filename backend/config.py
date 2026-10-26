@@ -1,11 +1,11 @@
 import base64
 import json
 import os
+import re
 import tempfile
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
-from typing import Literal
 from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
@@ -47,6 +47,18 @@ def _ssl_ca_path() -> str | None:
     return None
 
 
+def _firebase_project_id() -> str | None:
+    """The Firebase project lives in one place: docs/config.js (the website needs it too).
+    FIREBASE_PROJECT_ID overrides it, e.g. on a server without the docs folder."""
+    if pid := os.environ.get("FIREBASE_PROJECT_ID"):
+        return pid
+    site_config = Path(__file__).resolve().parent.parent / "docs" / "config.js"
+    if site_config.exists():
+        m = re.search(r'projectId:\s*"([a-z0-9-]+)"', site_config.read_text(encoding="utf-8"))
+        return m.group(1) if m else None
+    return None
+
+
 @dataclass(frozen=True)
 class Settings:
     db_host: str
@@ -57,20 +69,14 @@ class Settings:
     db_ssl_ca: str | None
     token_secret: bytes
     staff_pin: str
-    otp_mode: Literal["dev", "sms"]
+    firebase_project_id: str | None  # None = login not set up yet (see HANDOVER.md, step 3)
     allowed_origins: tuple[str, ...]
-    otp_ttl_seconds: int = 300
-    otp_max_attempts: int = 5
-    otp_resend_seconds: int = 30
     token_ttl_seconds: int = 7 * 24 * 3600
     booking_days_ahead: int = 7
     max_pause_days: int = 60
 
 
 def load_settings() -> Settings:
-    mode = os.environ.get("OTP_MODE", "dev")
-    if mode not in ("dev", "sms"):
-        raise RuntimeError("OTP_MODE must be 'dev' or 'sms'")
     pin = _required("STAFF_PIN")
     if len(pin) < 6:
         raise RuntimeError("STAFF_PIN must be at least 6 characters")
@@ -83,7 +89,7 @@ def load_settings() -> Settings:
         db_ssl_ca=_ssl_ca_path(),
         token_secret=_required("TOKEN_SECRET").encode(),
         staff_pin=pin,
-        otp_mode=mode,  # type: ignore[arg-type]
+        firebase_project_id=_firebase_project_id(),
         allowed_origins=tuple(o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "*").split(",") if o.strip()),
     )
 

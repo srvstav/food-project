@@ -6,61 +6,97 @@
 <title>Mess Live Board</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="tools.css">
 </head>
-<body>
+<body class="ledger">
 <header class="bar">
-  <h1>Mess <em>live</em> · straight from MySQL</h1>
-  <span class="meta">refresh every 2 s · last <b id="tick">-</b> · <span id="server"></span></span>
-  <nav><a href="index.html">Student site</a><a href="staff.html">Staff counter</a><a href="project.html">How it's built</a></nav>
+  <h1>Mess <em>ledger</em></h1>
+  <span class="meta"><span class="live-dot"></span> live from MySQL · every 2 s · <b id="tick">-</b></span>
+  <nav><a href="index.html">Student site</a><a href="staff.html">Staff counter</a></nav>
 </header>
 
-<main class="grid">
-  <div class="stack">
-    <section class="card">
-      <h2><span>Today</span><code id="today"></code></h2>
-      <div class="kpis">
-        <div class="kpi"><div class="n" id="k-booked">0</div><div class="l">plates booked</div></div>
-        <div class="kpi"><div class="n" id="k-cooked">0</div><div class="l">to cook (booked × 1.3)</div></div>
-        <div class="kpi"><div class="n" id="k-served">0</div><div class="l">served so far</div></div>
-        <div class="kpi"><div class="n" id="k-donated">0</div><div class="l">portions donated</div></div>
-      </div>
-    </section>
+<main class="board">
+  <!-- 1. BUSINESS: what each mess earns -->
+  <section class="card span">
+    <h2><span>Business · last 7 days</span><code>v_mess_earnings</code></h2>
+    <p class="note">Each mess is paid per plate it <b>serves</b> and pays for every plate it <b>cooks</b>. Cook less waste, earn more. Today counts only meals that have started.</p>
+    <div class="duel" id="duel"></div>
+    <div class="shares" id="shares"></div>
+    <div class="charts">
+      <figure class="chart">
+        <figcaption>Profit per day <span class="legend"><i class="sw dove"></i>BluDove <i class="sw spring"></i>BluSpring</span></figcaption>
+        <div class="plot" id="daily"></div>
+      </figure>
+      <figure class="chart">
+        <figcaption>Profit by meal, 7 days <span class="legend"><i class="sw dove"></i>BluDove <i class="sw spring"></i>BluSpring</span></figcaption>
+        <div class="plot" id="bymeal"></div>
+      </figure>
+    </div>
+  </section>
 
-    <section class="card">
-      <h2><span>Each meal, each mess</span><code>v_meal_summary</code></h2>
-      <div class="scroll"><table>
-        <thead><tr><th>meal</th><th>mess</th><th class="num">booked</th><th class="num">cook</th><th class="num">served</th><th class="num">no-show</th><th class="num">walk-in</th><th class="num">donate</th><th>status</th></tr></thead>
-        <tbody id="summary"></tbody>
-      </table></div>
-    </section>
-
-    <section class="card">
-      <h2><span>Donations today</span><code>donations</code></h2>
-      <div class="scroll"><table>
-        <thead><tr><th>meal</th><th>mess</th><th>ngo</th><th>area</th><th class="num">portions</th></tr></thead>
-        <tbody id="donations"></tbody>
-      </table></div>
-    </section>
-
-    <section class="card">
-      <h2><span>NGO totals (all time)</span><code>v_ngo_totals</code></h2>
-      <div class="scroll"><table>
-        <thead><tr><th>ngo</th><th>area</th><th class="num">deliveries</th><th class="num">portions</th></tr></thead>
-        <tbody id="ngos"></tbody>
-      </table></div>
-    </section>
-  </div>
-
+  <!-- 2. KITCHENS: plan tomorrow -->
   <section class="card">
-    <h2><span>Activity - written only by triggers</span><code>activity_log</code></h2>
+    <h2><span>Plan tomorrow's shopping</span><code>v_daily_forecast</code></h2>
+    <p class="note">Booked so far for tomorrow, and what to cook (booked + 30%). Bookings stay open until the day itself.</p>
+    <div class="scroll"><table>
+      <thead><tr><th>meal</th><th class="num dove-t">BluDove</th><th class="num">cook</th><th class="num spring-t">BluSpring</th><th class="num">cook</th></tr></thead>
+      <tbody id="tomorrow"></tbody>
+    </table></div>
+  </section>
+
+  <!-- 3. TODAY -->
+  <section class="card">
+    <h2><span>Today</span><code id="today"></code></h2>
+    <div class="kpis">
+      <div class="kpi"><div class="n" id="k-booked">0</div><div class="l">plates booked</div></div>
+      <div class="kpi"><div class="n" id="k-cooked">0</div><div class="l">to cook (booked × 1.3)</div></div>
+      <div class="kpi"><div class="n" id="k-served">0</div><div class="l">served so far</div></div>
+      <div class="kpi"><div class="n" id="k-donated">0</div><div class="l">portions donated</div></div>
+      <div class="kpi"><div class="n" id="k-students">0</div><div class="l">students on the roster</div></div>
+      <div class="kpi"><div class="n" id="k-logged">0</div><div class="l">have logged in</div></div>
+    </div>
+  </section>
+
+  <section class="card activity">
+    <h2><span>Activity · written only by triggers</span><code>activity_log</code></h2>
     <div class="scroll"><table>
       <thead><tr><th>#</th><th>time</th><th>event</th><th>detail</th></tr></thead>
       <tbody id="log"></tbody>
     </table></div>
   </section>
+
+  <section class="card span-2">
+    <h2><span>Each meal, each mess, today</span><code>v_meal_summary</code></h2>
+    <div class="scroll"><table>
+      <thead><tr><th>meal</th><th>mess</th><th class="num">booked</th><th class="num">cook</th><th class="num">served</th><th class="num">no-show</th><th class="num">walk-in</th><th class="num">donate</th><th>status</th></tr></thead>
+      <tbody id="summary"></tbody>
+    </table></div>
+  </section>
+
+
+  <section class="card">
+    <h2><span>Which hostel eats where, today</span><code>v_hostel_split</code></h2>
+    <div class="scroll"><table>
+      <thead><tr><th>hostel</th><th class="num">BluDove</th><th class="num">BluSpring</th><th>split</th></tr></thead>
+      <tbody id="hostels"></tbody>
+    </table></div>
+  </section>
+
+  <section class="card">
+    <h2><span>Donations today</span><code>donations</code></h2>
+    <div class="scroll"><table>
+      <thead><tr><th>meal</th><th>mess</th><th>ngo</th><th class="num">portions</th></tr></thead>
+      <tbody id="donations"></tbody>
+    </table></div>
+    <h2 class="sub"><span>NGO totals, all time</span><code>v_ngo_totals</code></h2>
+    <div class="scroll"><table>
+      <thead><tr><th>ngo</th><th>area</th><th class="num">deliveries</th><th class="num">portions</th></tr></thead>
+      <tbody id="ngos"></tbody>
+    </table></div>
+  </section>
 </main>
+<div id="tip" role="tooltip" hidden></div>
 <p id="toast" role="status"></p>
 
 <script src="config.js"></script>
@@ -71,8 +107,10 @@
   const rows = (id, list, cols, render) => {
     $(id).innerHTML = list.length ? list.map(render).join("") : `<tr><td colspan="${cols}" class="empty">Nothing yet.</td></tr>`;
   };
-  $("server").textContent = API.replace(/^https?:\/\//, "");
-  let lastId = 0, slots = {};
+  const inr = n => (n < 0 ? "−₹" : "₹") + Math.abs(Math.round(n)).toLocaleString("en-IN");
+  const pct = (a, b) => (b ? Math.round((100 * a) / b) : 0);
+  const MESS = { 1: { name: "BluDove", cls: "dove" }, 2: { name: "BluSpring", cls: "spring" } };
+  let lastId = 0, slots = {}, lastBusiness = "";
 
   apiFetch("/menu").then(m => { for (const s of m.slots) slots[s.slot_id] = s; }).catch(() => {});
 
@@ -84,15 +122,153 @@
     return t < s.starts_at ? "later" : t > s.ends_at ? "done" : "open";
   }
 
+  /* ---------- business: totals per mess, shares, two charts ---------- */
+
+  function totals(list) {
+    const t = {};
+    for (const id of [1, 2]) t[id] = { revenue: 0, food_cost: 0, profit: 0, served: 0, cooked: 0, wasted: 0, no_shows: 0, booked: 0 };
+    for (const r of list) for (const k in t[r.mess_id]) t[r.mess_id][k] += Number(r[k]);
+    return t;
+  }
+
+  function renderDuel(t) {
+    const lead = t[1].profit === t[2].profit ? 0 : t[1].profit > t[2].profit ? 1 : 2;
+    $("duel").innerHTML = [1, 2].map(id => {
+      const m = t[id], margin = pct(m.profit, m.revenue);
+      const badge = lead === id ? `<span class="lead">leads by ${inr(Math.abs(t[1].profit - t[2].profit))}</span>` : "";
+      return `<article class="mess ${MESS[id].cls}">
+        <header><b>${MESS[id].name}</b>${badge}</header>
+        <div class="hero ${m.profit < 0 ? "neg" : ""}">${inr(m.profit)}<small>profit</small></div>
+        <dl>
+          <div><dt>margin</dt><dd>${margin}%</dd></div>
+          <div><dt>paid for plates</dt><dd>${inr(m.revenue)}</dd></div>
+          <div><dt>food cost</dt><dd>${inr(m.food_cost)}</dd></div>
+          <div><dt>plates served</dt><dd>${m.served.toLocaleString("en-IN")}</dd></div>
+          <div><dt>wasted</dt><dd>${pct(m.wasted, m.cooked)}% of cooked</dd></div>
+          <div><dt>no-shows</dt><dd>${pct(m.no_shows, m.booked)}% of booked</dd></div>
+        </dl>
+      </article>`;
+    }).join("");
+  }
+
+  function shareBar(label, a, b, fmt) {
+    const total = a + b, pa = pct(a, total);
+    return `<div class="share"><span class="lbl">${label}</span>
+      <div class="bar2" data-tip="BluDove ${fmt(a)} (${pa}%) · BluSpring ${fmt(b)} (${100 - pa}%)">
+        <i class="dove" style="flex:${Math.max(a, 0.0001)}">${pa >= 12 ? pa + "%" : ""}</i><i class="spring" style="flex:${Math.max(b, 0.0001)}">${100 - pa >= 12 ? 100 - pa + "%" : ""}</i>
+      </div></div>`;
+  }
+
+  function renderShares(t) {
+    const both = t[1].profit > 0 && t[2].profit > 0;  // a share of profit only makes sense when both made one
+    $("shares").innerHTML =
+      shareBar("share of plates served", t[1].served, t[2].served, n => n.toLocaleString("en-IN")) +
+      (both ? shareBar("share of profit", t[1].profit, t[2].profit, inr) : "") +
+      shareBar("share of revenue", t[1].revenue, t[2].revenue, inr);
+  }
+
+  // Grouped bars on one zero baseline. groups: [{label, values: {1: n, 2: n}}]. Vertical or horizontal.
+  function barChart(el, groups, { horizontal = false } = {}) {
+    const vals = groups.flatMap(g => [g.values[1] || 0, g.values[2] || 0]);
+    const max = Math.max(0, ...vals), min = Math.min(0, ...vals), span = max - min || 1;
+    const W = 640, H = horizontal ? 40 * groups.length + 24 : 230, pad = horizontal ? { l: 82, r: 70, t: 6, b: 18 } : { l: 56, r: 8, t: 10, b: 26 };
+    const iw = W - pad.l - pad.r, ih = H - pad.t - pad.b;
+    const scale = v => (horizontal ? pad.l + ((v - min) / span) * iw : pad.t + ((max - v) / span) * ih);
+    const zero = scale(0);
+    const band = (horizontal ? ih : iw) / groups.length, bw = Math.min(22, (band - 14) / 2);
+    let svg = "";
+    // three recessive gridlines with labels
+    for (const v of [min, (min + max) / 2, max].filter((v, i, a) => a.indexOf(v) === i)) {
+      const p = scale(v);
+      svg += horizontal
+        ? `<line class="grid" x1="${p}" x2="${p}" y1="${pad.t}" y2="${H - pad.b}"/><text class="ax" x="${p}" y="${H - 4}" text-anchor="middle">${inr(v)}</text>`
+        : `<line class="grid" x1="${pad.l}" x2="${W - pad.r}" y1="${p}" y2="${p}"/><text class="ax" x="${pad.l - 6}" y="${p + 4}" text-anchor="end">${inr(v)}</text>`;
+    }
+    groups.forEach((g, i) => {
+      const c = (horizontal ? pad.t : pad.l) + band * i + band / 2;
+      [1, 2].forEach((id, k) => {
+        const v = g.values[id] || 0, p = scale(v), off = c - bw - 1 + k * (bw + 2);
+        const len = Math.abs(p - zero), tip = `${esc(g.label)} · ${MESS[id].name}: ${inr(v)}`;
+        svg += horizontal
+          ? `<rect class="${MESS[id].cls}" x="${Math.min(p, zero)}" y="${off}" width="${Math.max(len, 1)}" height="${bw}" rx="3" data-tip="${tip}"/>`
+          : `<rect class="${MESS[id].cls}" x="${off}" y="${Math.min(p, zero)}" width="${bw}" height="${Math.max(len, 1)}" rx="3" data-tip="${tip}"/>`;
+      });
+      svg += horizontal
+        ? `<text class="cat" x="${pad.l - 8}" y="${c + 4}" text-anchor="end">${esc(g.label)}</text>`
+        : `<text class="cat" x="${c}" y="${H - 8}" text-anchor="middle">${esc(g.label)}</text>`;
+    });
+    svg += horizontal
+      ? `<line class="zero" x1="${zero}" x2="${zero}" y1="${pad.t}" y2="${H - pad.b}"/>`
+      : `<line class="zero" x1="${pad.l}" x2="${W - pad.r}" y1="${zero}" y2="${zero}"/>`;
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Grouped bar chart of profit, BluDove and BluSpring">${svg}</svg>`;
+  }
+
+  function renderBusiness(earnings) {
+    const key = JSON.stringify(earnings);
+    if (key === lastBusiness) return;  // don't redraw (and lose a hover) when nothing changed
+    lastBusiness = key;
+    const t = totals(earnings);
+    renderDuel(t);
+    renderShares(t);
+    const days = [...new Set(earnings.map(r => r.meal_date))];
+    const today = istDay(0);
+    barChart($("daily"), days.map(d => {
+      const v = {};
+      for (const r of earnings) if (r.meal_date === d) v[r.mess_id] = (v[r.mess_id] || 0) + Number(r.profit);
+      return { label: d === today ? "today" : new Date(d + "T00:00").toLocaleDateString("en-IN", { weekday: "short", day: "numeric" }), values: v };
+    }));
+    const meals = [...new Map(earnings.map(r => [r.slot_id, r.meal])).entries()].sort((a, b) => a[0] - b[0]);
+    barChart($("bymeal"), meals.map(([slot, meal]) => {
+      const v = {};
+      for (const r of earnings) if (r.slot_id === slot) v[r.mess_id] = (v[r.mess_id] || 0) + Number(r.profit);
+      return { label: meal, values: v };
+    }), { horizontal: true });
+  }
+
+  function renderTomorrow(list) {
+    const by = {};
+    for (const r of list) (by[r.meal] ??= {})[r.mess] = r;
+    const meals = Object.values(slots).map(s => s.name);
+    rows("tomorrow", meals.length ? meals : Object.keys(by), 5, meal => {
+      const d = by[meal]?.BluDove, s = by[meal]?.BluSpring;
+      return `<tr><td>${esc(meal)}</td><td class="num">${d ? d.booked : 0}</td><td class="num strong">${d ? d.cook_for : 0}</td>
+        <td class="num">${s ? s.booked : 0}</td><td class="num strong">${s ? s.cook_for : 0}</td></tr>`;
+    });
+  }
+
+  // One tooltip for every chart: hover or tap anything with data-tip.
+  const tip = $("tip");
+  document.addEventListener("pointermove", e => {
+    const t = e.target.closest?.("[data-tip]");
+    if (!t) { tip.hidden = true; return; }
+    tip.textContent = t.dataset.tip;
+    tip.hidden = false;
+    tip.style.left = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 8) + "px";
+    tip.style.top = e.clientY + 16 + "px";
+  });
+
   async function refresh() {
     try {
       const d = await apiFetch("/admin/live?limit=40");
       $("today").textContent = d.meal_date;
       const sum = k => d.summary.reduce((a, r) => a + Number(r[k]), 0);
-      $("k-booked").textContent = sum("booked");
-      $("k-cooked").textContent = sum("cooked");
-      $("k-served").textContent = sum("served");
-      $("k-donated").textContent = d.donations.reduce((a, r) => a + Number(r.portions), 0);
+      $("k-booked").textContent = sum("booked").toLocaleString("en-IN");
+      $("k-cooked").textContent = sum("cooked").toLocaleString("en-IN");
+      $("k-served").textContent = sum("served").toLocaleString("en-IN");
+      $("k-donated").textContent = d.donations.reduce((a, r) => a + Number(r.portions), 0).toLocaleString("en-IN");
+      $("k-students").textContent = d.roster.students.toLocaleString("en-IN");
+      $("k-logged").textContent = d.roster.logged_in.toLocaleString("en-IN");
+
+      renderBusiness(d.earnings);
+      renderTomorrow(d.tomorrow);
+
+      const halls = {};
+      for (const h of d.hostels) (halls[h.hostel] ??= { BluDove: 0, BluSpring: 0 })[h.mess] = Number(h.booked);
+      rows("hostels", Object.entries(halls), 4, ([name, m]) => {
+        const dove = pct(m.BluDove, m.BluDove + m.BluSpring);
+        return `<tr><td>${esc(name)}</td><td class="num">${m.BluDove}</td><td class="num">${m.BluSpring}</td>
+          <td><span class="split" style="--dove:${dove}%" data-tip="${esc(name)}: ${dove}% BluDove, ${100 - dove}% BluSpring"></span></td></tr>`;
+      });
 
       const closed = new Set(d.donations.map(x => x.slot_id));  // staff pressed "meal over"
       rows("summary", d.summary, 9, r => {
@@ -104,14 +280,16 @@
           <td class="num">${after ? r.donate : "-"}</td>
           <td>${st ? `<span class="pill ${st}">${st === "done" ? "over" : st === "open" ? "serving" : "upcoming"}</span>` : ""}</td></tr>`;
       });
-      rows("donations", d.donations, 5, r => `<tr><td>${esc(r.meal)}</td><td>${esc(r.mess)}</td><td>${esc(r.ngo)}</td><td>${esc(r.area)}</td><td class="num">${r.portions}</td></tr>`);
+      rows("donations", d.donations, 4, r => `<tr><td>${esc(r.meal)}</td><td>${esc(r.mess)}</td><td>${esc(r.ngo)}</td><td class="num">${r.portions}</td></tr>`);
       rows("ngos", d.ngos, 4, r => `<tr><td>${esc(r.name)}</td><td>${esc(r.area)}</td><td class="num">${r.deliveries}</td><td class="num">${r.portions}</td></tr>`);
       rows("log", d.activity, 4, a => `<tr class="${lastId && a.id > lastId ? "new" : ""}"><td>${a.id}</td><td>${esc(a.at)}</td>
           <td class="ev ${esc(a.event)}">${esc(a.event)}</td><td class="wrap">${esc(a.detail)}</td></tr>`);
       lastId = Math.max(lastId, ...d.activity.map(a => a.id), 0);
-      $("tick").textContent = new Date().toLocaleTimeString();
+      $("tick").textContent = new Date().toLocaleTimeString("en-IN");
+      document.body.classList.remove("offline");
     } catch (e) {
       $("tick").textContent = "offline";
+      document.body.classList.add("offline");
     }
   }
   refresh();

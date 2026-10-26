@@ -6,7 +6,7 @@
 USE mess;
 SET time_zone = '+05:30';   -- show times in India time (the cloud server runs on UTC)
 
--- 1. LIVE FEED: every signup, login, booking, pause, serve and donation (written by triggers)
+-- 1. LIVE FEED: every enrolment, login, booking, pause, serve and donation (written by triggers)
 SELECT id, at, event, detail FROM activity_log ORDER BY id DESC LIMIT 30;
 
 -- 2. Every student's choice, newest first
@@ -34,7 +34,7 @@ ORDER BY d.id DESC;
 SELECT * FROM v_ngo_totals;
 
 -- 6. Students away from campus right now
-SELECT s.phone, p.from_date, p.to_date
+SELECT s.reg_no, s.full_name, p.from_date, p.to_date
 FROM pauses p JOIN students s ON s.id = p.student_id
 WHERE p.ended_on IS NULL AND CURDATE() BETWEEN p.from_date AND p.to_date;
 
@@ -47,16 +47,46 @@ FROM bookings b JOIN meal_slots ms ON ms.id = b.slot_id
 WHERE b.meal_date = CURDATE()
 GROUP BY ms.id, ms.name ORDER BY ms.id;
 
--- 8. OTPs issued (only a keyed hash is stored, never the code itself)
-SELECT id, phone, LEFT(code_hash, 12) AS hash_prefix, expires_at, attempts, used_at
-FROM otp_codes ORDER BY id DESC LIMIT 10;
+-- 8. THE ROSTER: every student, joined to programme and hostel, with their mess use
+SELECT reg_no, full_name, programme, year_of_study, hostel, room_no, last_login, meals_booked, meals_eaten
+FROM v_student_directory ORDER BY last_login DESC, reg_no LIMIT 30;
+
+-- 9. Logins (the SMS code is checked by Firebase; we keep who logged in and when)
+SELECT l.at, s.reg_no, s.full_name FROM logins l JOIN students s ON s.id = l.student_id
+ORDER BY l.id DESC LIMIT 20;
+
+-- 10. Which hostel eats where today
+SELECT hostel, SUM(mess = 'BluDove') AS dove_rows, SUM(booked) AS plates
+FROM v_hostel_split WHERE meal_date = CURDATE() GROUP BY hostel ORDER BY plates DESC;
+
+-- 11. Students per programme and year (GROUP BY ... WITH ROLLUP adds subtotals)
+SELECT p.code AS programme, s.year_of_study, COUNT(*) AS students
+FROM students s JOIN programmes p ON p.id = s.programme_id
+GROUP BY p.code, s.year_of_study WITH ROLLUP;
+
+-- 12. Who books but never turns up? (LEFT JOIN + HAVING)
+SELECT s.reg_no, s.full_name, COUNT(b.id) AS booked, COUNT(a.id) AS eaten
+FROM students s
+JOIN bookings b       ON b.student_id = s.id AND b.status = 'booked' AND b.meal_date <= CURDATE()
+LEFT JOIN attendance a ON a.student_id = b.student_id AND a.meal_date = b.meal_date AND a.slot_id = b.slot_id
+GROUP BY s.id, s.reg_no, s.full_name
+HAVING booked >= 2 AND eaten = 0
+ORDER BY booked DESC LIMIT 15;
 
 -- ---------------------------------------------------------------------
 -- Show the database enforcing rules on its own (try these live):
 -- ---------------------------------------------------------------------
 
--- a) CHECK constraint: an invalid phone number is rejected
--- INSERT INTO students (phone) VALUES ('12345');
+-- a) Add a student to the roster. Put YOUR number here, then log in on the website with it.
+--    Watch query 1: the ENROL row appears, written by trg_student_enrol.
+-- INSERT INTO students (reg_no, full_name, gender, phone, email, programme_id, year_of_study, hostel_id, room_no, joined_on)
+-- VALUES ('230100999', 'Your Name', 'F', '9876543210', 'you@muj.manipal.edu', 1, 3, 13, '214', '2023-07-24');
+
+--    hostel_id: 1-12 = B1-B12 (boys), 13-22 = G1-G10 (girls).
+-- a2) The same insert with a man in a girls' hostel is refused by a trigger:
+--     "This hostel is for the other gender". And CHECK constraints refuse a bad phone:
+-- INSERT INTO students (reg_no, full_name, gender, phone, email, programme_id, year_of_study, joined_on)
+-- VALUES ('230100998', 'Bad Phone', 'M', '12345', 'x@y.in', 1, 1, '2023-07-24');
 
 -- b) UNIQUE key: a student can't hold two choices for the same meal
 --    (the website updates the row instead - see ON DUPLICATE KEY UPDATE in repo.py)

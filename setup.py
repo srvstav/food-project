@@ -5,12 +5,13 @@ One setup script for Windows, macOS and the cloud.
   python setup.py cloud     build the database on the cloud MySQL in backend/.env.cloud
   python setup.py reset     wipe and rebuild the local database (re-uses host/port/user)
 
-It creates database `mess`, loads db/schema.sql and db/seed.sql, makes a
-least-privilege user `mess_app`, and writes backend/.env for the API.
+It creates database `mess`, loads db/schema.sql, db/seed.sql and the student roster
+db/students.csv, makes a least-privilege user `mess_app`, and writes backend/.env for the API.
 """
 from __future__ import annotations
 
 import base64
+import csv
 import getpass
 import json
 import os
@@ -65,6 +66,35 @@ def run_file(conn: pymysql.connections.Connection, path: Path) -> int:
     return count
 
 
+STUDENT_SQL = """
+INSERT INTO students (reg_no, full_name, gender, phone, email, programme_id, year_of_study,
+                      hostel_id, room_no, joined_on)
+SELECT %(reg_no)s, %(full_name)s, %(gender)s, %(phone)s, %(email)s, p.id, %(year_of_study)s,
+       h.id, %(room_no)s, %(joined_on)s
+FROM programmes p JOIN hostels h ON h.name = %(hostel)s
+WHERE p.code = %(programme)s"""
+
+
+def load_students(conn: pymysql.connections.Connection, path: Path) -> int:
+    """Load the roster CSV. Names (programme code, hostel name) are turned into ids by the SELECT."""
+    with path.open(encoding="utf-8", newline="") as f:
+        rows = list(csv.DictReader(f))
+    with conn.cursor() as cur:
+        for i in range(0, len(rows), 500):  # batches keep each round trip small on the cloud
+            try:
+                cur.executemany(STUDENT_SQL, rows[i:i + 500])
+            except pymysql.MySQLError as e:
+                sys.exit(f"\nFailed loading {path.name} near row {i + 2}: {e}")
+        cur.execute("SELECT COUNT(*) FROM students")
+        loaded = cur.fetchone()[0]
+        if loaded != len(rows):
+            sys.exit(f"\n{path.name}: {len(rows) - loaded} rows have an unknown programme code or hostel. Check those columns.")
+        # The bulk load fired an ENROL trigger per row; start the live feed clean.
+        cur.execute("TRUNCATE activity_log")
+    conn.commit()
+    return loaded
+
+
 def connect(host: str, port: int, user: str, password: str, ssl_ca: str | None, database: str | None = None):
     kwargs = dict(host=host, port=port, user=user, password=password, charset="utf8mb4",
                   autocommit=False, connect_timeout=15)
@@ -112,7 +142,9 @@ def build(host: str, port: int, admin_user: str, admin_pass: str, ssl_ca: str | 
         print(f"-> Built schema ({n} statements: tables, triggers, procedures, views)")
         conn.select_db("mess")
         n = run_file(conn, ROOT / "db" / "seed.sql")
-        print(f"-> Loaded sample data ({n} statements: 2 messes, 4 meals, menus, NGOs)")
+        print(f"-> Loaded sample data ({n} statements: messes, meals, menus, programmes, hostels, NGOs)")
+        n = load_students(conn, ROOT / "db" / "students.csv")
+        print(f"-> Loaded the student roster ({n} students from db/students.csv)")
 
         app_pass = secrets.token_urlsafe(18)
         # Cloud: the API connects from another server. Local: only from this machine
@@ -142,7 +174,6 @@ def write_env(db: dict[str, str], ssl_ca_pem: str | None, target: Path) -> dict[
         **db,
         "TOKEN_SECRET": secrets.token_hex(32),
         "STAFF_PIN": f"{secrets.randbelow(10**6):06d}",
-        "OTP_MODE": "dev",
         "ALLOWED_ORIGINS": "*",
     }
     if ssl_ca_pem:
@@ -171,7 +202,7 @@ def cmd_local(ask: bool) -> None:
     env = write_env(db, None, BACKEND / ".env")
     print("\nOK: Local database ready. API settings saved to backend/.env")
     print(f"  Staff PIN (for staff.html): {env['STAFF_PIN']}")
-    print("  Next: double-click start.bat (Windows) or run ./start.sh, then open http://127.0.0.1:8000")
+    print("  Next: double-click start.bat (Windows) or run ./start.sh, then open http://localhost:8000")
 
 
 def _find_ca() -> Path:

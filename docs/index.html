@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="preload" as="image" href="food/hero.webp" type="image/webp">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -71,7 +72,7 @@
 <!-- LIVE from MySQL -->
 <section class="live" id="live">
   <div class="live-head">
-    <p class="kicker light">Live from MySQL · v_daily_forecast</p>
+    <p class="kicker light">Live · refreshes every 5 seconds</p>
     <h2>Cooking today</h2>
     <p class="live-note" id="live-note">Connecting to the mess server…</p>
   </div>
@@ -82,7 +83,7 @@
 <section class="book" id="book">
   <div class="book-intro">
     <h2>Book your <em>plate</em>.</h2>
-    <p>Phone number, OTP, then pick a mess for each meal. It goes straight into the database.</p>
+    <p>Your number gets a 6-digit code by SMS. Then pick a mess for every meal.</p>
   </div>
 
   <div class="book-panel">
@@ -90,23 +91,37 @@
       <form id="phone-form" novalidate>
         <label for="phone">Mobile number</label>
         <div class="field"><span>+91</span><input id="phone" inputmode="numeric" autocomplete="tel-national" maxlength="10" placeholder="98765 43210" required></div>
-        <button type="submit" class="btn">Send OTP</button>
+        <button type="submit" class="btn">Send code by SMS</button>
+        <p class="form-msg" id="phone-msg" role="alert" hidden></p>
       </form>
+      <div id="recaptcha"></div>
     </div>
 
     <div id="step-otp" class="step" hidden>
       <form id="otp-form" novalidate>
-        <label for="otp">OTP sent to +91 <b id="otp-phone"></b></label>
-        <p id="dev-otp" class="dev" hidden></p>
-        <input id="otp" class="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••" required>
+        <label for="otp">Enter the 6-digit code for <b id="otp-phone"></b>
+          <button type="button" id="edit-phone" class="link">Edit</button></label>
+        <!-- One real input (so SMS autofill and paste work) drawn as six boxes. -->
+        <div class="otp-wrap" id="otp-wrap">
+          <div class="otp-boxes" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+          <input id="otp" class="otp-input" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="\d{6}" aria-label="6-digit code" required>
+        </div>
+        <p class="demo-code" id="demo-code" hidden></p>
+        <p class="form-msg" id="otp-msg" role="alert" hidden></p>
         <button type="submit" class="btn">Verify &amp; continue</button>
-        <button type="button" id="back" class="ghost">Use another number</button>
+        <div class="otp-links">
+          <button type="button" id="resend" class="ghost" disabled>Resend code</button>
+          <button type="button" id="back" class="ghost">Use another number</button>
+        </div>
       </form>
     </div>
 
     <div id="step-book" class="step" hidden>
       <div class="book-top">
-        <p>Logged in as <b id="me-phone"></b></p>
+        <div class="me">
+          <p class="me-name">Hi, <b id="me-name"></b></p>
+          <p class="me-meta" id="me-meta"></p>
+        </div>
         <button id="logout" class="ghost">Log out</button>
       </div>
       <div class="days" id="days" role="tablist" aria-label="Pick a day"></div>
@@ -133,15 +148,15 @@
   <nav class="foot-links">
     <a href="dashboard.html">Live dashboard</a>
     <a href="staff.html">Mess staff counter</a>
-    <a href="project.html">How it's built</a>
   </nav>
-  <p class="foot-small">An RDBMS project · MySQL 8 + FastAPI · Manipal University Jaipur</p>
+  <p class="foot-credit">Food photos: real plates, shared under open licences. <a href="credits.html">Credits</a></p>
 </footer>
 
 <p id="toast" role="status" aria-live="polite"></p>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
 <script src="config.js"></script>
 <script src="shared.js"></script>
 <script src="plates.js"></script>
