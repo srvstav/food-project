@@ -4,7 +4,7 @@ One annual fee and two messes (**BluDove** and **BluSpring**). Students book whe
 
 An RDBMS project: **MySQL 8** (14 tables, 12 triggers, 4 stored procedures, 1 function, 7 views, and a 1,200-student roster) + **Python FastAPI** + a plain HTML/CSS/JS website.
 
-**Taking this project over? Start with [HANDOVER.md](HANDOVER.md).**
+**Taking this project over? Start with [HANDOVER.md](HANDOVER.md). Presenting it in MySQL Workbench? [WORKBENCH.md](WORKBENCH.md).**
 
 | Page | What it is |
 | --- | --- |
