@@ -268,3 +268,14 @@ def test_demo_mode_shows_the_code_and_logs_in(monkeypatch: pytest.MonkeyPatch) -
 
 def test_demo_codes_are_off_when_firebase_is_on() -> None:
     assert client.post("/auth/demo-verify", json={"phone": _phone(), "otp": "123456"}).status_code == 403
+
+
+def test_workbench_bundle_matches_the_sources() -> None:
+    """db/mess_complete.sql must be rebuilt (python setup.py bundle) whenever schema, seed or roster change."""
+    from pathlib import Path
+    db = Path(__file__).resolve().parents[2] / "db"
+    bundle = (db / "mess_complete.sql").read_text(encoding="utf-8")
+    assert (db / "schema.sql").read_text(encoding="utf-8") in bundle
+    assert (db / "seed.sql").read_text(encoding="utf-8") in bundle
+    roster = (db / "students.csv").read_text(encoding="utf-8").splitlines()[1:]
+    assert all(f"'{line.split(',')[0]}'" in bundle for line in roster)

@@ -4,6 +4,7 @@ One setup script for Windows, macOS and the cloud.
   python setup.py local     build the database on this laptop's MySQL (asks for the root password)
   python setup.py cloud     build the database on the cloud MySQL in backend/.env.cloud
   python setup.py reset     wipe and rebuild the local database (re-uses host/port/user)
+  python setup.py bundle    write db/mess_complete.sql: the whole database in one file for MySQL Workbench
 
 It creates database `mess`, loads db/schema.sql, db/seed.sql and the student roster
 db/students.csv, makes a least-privilege user `mess_app`, and writes backend/.env for the API.
@@ -145,6 +146,10 @@ def build(host: str, port: int, admin_user: str, admin_pass: str, ssl_ca: str | 
         print(f"-> Loaded sample data ({n} statements: messes, meals, menus, programmes, hostels, NGOs)")
         n = load_students(conn, ROOT / "db" / "students.csv")
         print(f"-> Loaded the student roster ({n} students from db/students.csv)")
+        with conn.cursor() as cur:
+            cur.execute("CALL sp_demo_week()")
+        conn.commit()
+        print("-> Filled a demo week (CALL sp_demo_week): 6 days served and closed, plus today's bookings")
 
         app_pass = secrets.token_urlsafe(18)
         # Cloud: the API connects from another server. Local: only from this machine
@@ -259,14 +264,50 @@ def cmd_cloud() -> None:
         "MySQL Workbench -> new connection:\n"
         f"  Hostname: {url.hostname}\n  Port: {url.port or 3306}\n  Username: {admin_user}\n  Password: {admin_pass}\n"
         "  SSL tab: Use SSL = Require, SSL CA File = ca.pem (send it along with this file)\n\n"
-        f"Staff PIN (staff.html): {env['STAFF_PIN']}\n", encoding="utf-8")
+        f"Staff PIN (staff.html): {env['STAFF_PIN']}\n\n"
+        "On the laptop that ran setup_cloud.bat: double-click workbench_cloud.bat to open Workbench already connected.\n"
+        "Everyone else: WORKBENCH.md, section 1.\n", encoding="utf-8")
     (ROOT / "ca.pem").write_text(ca_pem, encoding="utf-8")
+    # workbench_cloud.bat opens Workbench straight on the cloud database with this.
+    (BACKEND / ".workbench_cloud").write_text(f"{admin_user}@{url.hostname}:{url.port or 3306}\n", encoding="ascii")
 
     print("\nOK: Cloud database ready.")
     print("  Render needs ONE value, named MESS_SETTINGS.")
     print("  It is " + ("already COPIED - just paste it (Ctrl+V) in Render." if copied else "in RENDER_VALUE.txt - copy all of it."))
     print("  Workbench details for the team: CLOUD_DETAILS.txt (+ ca.pem)")
     print(f"  Staff PIN: {env['STAFF_PIN']}")
+
+
+def _sql(v: str) -> str:
+    return "'" + v.replace("\\", "\\\\").replace("'", "''") + "'"
+
+
+def cmd_bundle() -> None:
+    """One .sql file that builds everything, for a laptop that only has MySQL Server + Workbench:
+    Workbench -> File -> Open SQL Script -> db/mess_complete.sql -> run all (the lightning bolt)."""
+    seed = (ROOT / "db" / "seed.sql").read_text(encoding="utf-8")
+    progs = {code: int(pid) for pid, code in re.findall(r"\((\d+),\s+'([A-Z-]+)',", seed.split("INSERT INTO programmes")[1].split(";")[0])}
+    halls = {name: int(hid) for hid, name in re.findall(r"\((\d+), '([BG]\d+)'", seed)}
+    with (ROOT / "db" / "students.csv").open(encoding="utf-8", newline="") as f:
+        rows = list(csv.DictReader(f))
+    values = ",\n".join(
+        f"({_sql(r['reg_no'])}, {_sql(r['full_name'])}, {_sql(r['gender'])}, {_sql(r['phone'])}, {_sql(r['email'])}, "
+        f"{progs[r['programme']]}, {int(r['year_of_study'])}, {halls[r['hostel']]}, {_sql(r['room_no'])}, {_sql(r['joined_on'])})"
+        for r in rows)
+    out = ROOT / "db" / "mess_complete.sql"
+    out.write_text(
+        "-- MUJ Mess: the WHOLE database in one script (made by `python setup.py bundle`; don't edit by hand).\n"
+        "-- MySQL Workbench: File -> Open SQL Script -> this file -> click the lightning bolt (Execute all).\n"
+        "-- It drops and rebuilds the `mess` database: tables, triggers, procedures, views, the roster and a demo week.\n\n"
+        + (ROOT / "db" / "schema.sql").read_text(encoding="utf-8")
+        + "\n\n" + seed
+        + "\n\n-- The student roster (from db/students.csv)\n"
+        "INSERT INTO students (reg_no, full_name, gender, phone, email, programme_id, year_of_study, hostel_id, room_no, joined_on) VALUES\n"
+        + values + ";\n\nTRUNCATE activity_log;  -- start the live feed clean\n\n"
+        "-- A demo week: 6 days served and closed, plus today's bookings\nCALL sp_demo_week();\n\n"
+        "SELECT 'Done. Refresh the Schemas panel (circular arrows) to see the mess database.' AS status;\n",
+        encoding="utf-8")
+    print(f"Wrote {out.relative_to(ROOT)} ({out.stat().st_size // 1024} KB, {len(rows)} students)")
 
 
 if __name__ == "__main__":
@@ -277,5 +318,7 @@ if __name__ == "__main__":
         cmd_local(ask=False)
     elif mode == "cloud":
         cmd_cloud()
+    elif mode == "bundle":
+        cmd_bundle()
     else:
         sys.exit(__doc__)

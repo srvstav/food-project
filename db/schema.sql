@@ -10,7 +10,7 @@
 -- Views:         v_student_directory, v_live_bookings, v_daily_forecast, v_hostel_split,
 --                v_meal_summary, v_mess_earnings, v_ngo_totals
 -- Procedures:    sp_check_student (used by triggers), sp_pause_mess, sp_resume_mess,
---                sp_close_meal (transactions)
+--                sp_close_meal (transactions), sp_demo_day / sp_demo_week (demo data)
 -- =====================================================================
 DROP DATABASE IF EXISTS mess;
 CREATE DATABASE mess CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
@@ -393,6 +393,50 @@ BEGIN
     END LOOP;
     CLOSE cur;
   COMMIT;
+END$$
+
+-- Demo data made by the database itself (no Python needed): one CALL fills a day.
+-- About 70% of students not on pause book each meal; some skip. With p_serve, about 85% of
+-- bookers are served and every meal is closed (donations). A day that already has bookings is left alone.
+CREATE PROCEDURE sp_demo_day(IN p_date DATE, IN p_serve BOOLEAN)
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM bookings WHERE meal_date = p_date) THEN
+    -- NO_MERGE keeps each RAND() to one value per row, so mess and status always agree.
+    INSERT INTO bookings (student_id, meal_date, slot_id, mess_id, status)
+    SELECT /*+ NO_MERGE(r) */ r.sid, p_date, r.slot,
+           IF(r.a < r.skip, NULL, IF(r.b < r.dove, 1, 2)),
+           IF(r.a < r.skip, 'skipped', 'booked')
+    FROM (
+      SELECT s.id AS sid, ms.id AS slot, RAND() AS a, RAND() AS b,
+             ELT(ms.id, 0.12, 0.08, 0.30, 0.10) AS skip,     -- share skipping each meal
+             ELT(ms.id, 0.55, 0.40, 0.62, 0.47) AS dove      -- share of eaters picking BluDove
+      FROM students s CROSS JOIN meal_slots ms
+      WHERE s.status = 'active' AND RAND() < 0.7
+        AND NOT EXISTS (SELECT 1 FROM pauses p WHERE p.student_id = s.id
+                          AND p_date BETWEEN p.from_date AND p.to_date
+                          AND (p.ended_on IS NULL OR p_date < p.ended_on))
+    ) r;
+    IF p_serve THEN
+      INSERT INTO attendance (student_id, meal_date, slot_id, mess_id)
+      SELECT student_id, meal_date, slot_id, mess_id FROM bookings
+      WHERE meal_date = p_date AND status = 'booked' AND RAND() < 0.85;
+      CALL sp_close_meal(p_date, 1);
+      CALL sp_close_meal(p_date, 2);
+      CALL sp_close_meal(p_date, 3);
+      CALL sp_close_meal(p_date, 4);
+    END IF;
+  END IF;
+END$$
+
+-- A full demo week: the last 6 days served and closed, plus today's bookings. CALL sp_demo_week();
+CREATE PROCEDURE sp_demo_week()
+BEGIN
+  DECLARE d INT DEFAULT 6;
+  WHILE d > 0 DO
+    CALL sp_demo_day(CURDATE() - INTERVAL d DAY, TRUE);
+    SET d = d - 1;
+  END WHILE;
+  CALL sp_demo_day(CURDATE(), FALSE);
 END$$
 
 DELIMITER ;

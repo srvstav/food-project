@@ -2,6 +2,16 @@
 
 This is the part the examiner marks. Everything below happens inside MySQL Workbench.
 
+## 0. The fastest ways in
+
+- **The laptop has only MySQL Server + Workbench (no Python):** open Workbench → your local connection →
+  **File → Open SQL Script → `db\mess_complete.sql`** → click the **lightning bolt** (Execute all). About 20 seconds later the
+  whole `mess` database exists: tables, triggers, procedures, views, 1,200 students and a demo week.
+  Click the circular arrows in the Schemas panel to see it.
+- **The laptop ran `setup.bat` (or `setup_cloud.bat`):** double-click **`workbench.bat`** (or **`workbench_cloud.bat`**).
+  Workbench opens already connected with `demo_queries.sql` loaded. Type the password once.
+- **New day, fresh numbers:** in Workbench run `CALL sp_demo_week();`. It fills any of the last 6 days that are empty, plus today.
+
 ## 1. Connect (once per laptop, 2 minutes)
 
 **If the project is on the cloud database** (the website at srvstav.github.io/mess uses it):
@@ -49,4 +59,4 @@ offline setup). It makes a booking, a mess switch or a serve every second or two
 | Test Connection fails on the cloud | Check the SSL tab says **Require** and points at `ca.pem`. The free cloud database may be sleeping: open the website once, wait a minute, retry |
 | `Access denied` | Wrong password. Copy it again from `CLOUD_DETAILS.txt` (no spaces) |
 | Reverse Engineer shows no tables | On the "Select Schemas" page, tick `mess` |
-| Queries show yesterday's data | Run `demo_data.bat` / `demo_cloud.bat` the morning of the demo |
+| Queries show yesterday's data | In Workbench: `CALL sp_demo_week();` (or run `demo.bat` / `demo_cloud.bat`) |

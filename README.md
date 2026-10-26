@@ -25,17 +25,19 @@ An RDBMS project: **MySQL 8** (14 tables, 12 triggers, 4 stored procedures, 1 fu
 2. Download this project (**Code → Download ZIP**) and unzip it.
 3. Double-click **`setup.bat`**, press Enter 3 times, then type the MySQL root password.
 4. Double-click **`start.bat`**. The site opens at http://localhost:8000. That's the full system, offline.
+5. Double-click **`workbench.bat`**: MySQL Workbench opens connected to the database with the demo queries loaded.
+   *(No Python on a laptop? In Workbench open and run `db\mess_complete.sql`. See [WORKBENCH.md](WORKBENCH.md).)*
 
 **One person, once, to put it online (~10 min):**
-5. Sign up at **aiven.io** → Create service → **MySQL** → **Free plan**. When it's running, copy the **Service URI** and click **CA certificate → Download**.
-6. Double-click **`setup_cloud.bat`** and paste the Service URI when asked. It finds `ca.pem` in Downloads by itself, builds the cloud database, and **copies one long line to your clipboard**.
-7. Sign up at **render.com** with GitHub → open https://dashboard.render.com/blueprint/new → pick this repo → paste (Ctrl+V) into **MESS_SETTINGS** → **Apply**. Wait for **Live**.
+6. Sign up at **aiven.io** → Create service → **MySQL** → **Free plan**. When it's running, copy the **Service URI** and click **CA certificate → Download**.
+7. Double-click **`setup_cloud.bat`** and paste the Service URI when asked. It finds `ca.pem` in Downloads by itself, builds the cloud database, and **copies one long line to your clipboard**.
+8. Sign up at **render.com** with GitHub → open https://dashboard.render.com/blueprint/new → pick this repo → paste (Ctrl+V) into **MESS_SETTINGS** → **Apply**. Wait for **Live**.
    **The Render address (`https://mess-api-….onrender.com`) is now your website**, usable from any phone.
-8. Send the other two **`CLOUD_DETAILS.txt`** and **`ca.pem`**, so their Workbench connects to the same live database (section C4).
+9. Send the other two **`CLOUD_DETAILS.txt`** and **`ca.pem`**, so their Workbench connects to the same live database (section C4).
 
 *Optional:* to make the github.io address use the cloud too, edit `docs/config.js` on github.com (pencil icon) and paste the Render address into `MESS_CLOUD_API`.
 
-If step 6 says the cloud *"will refuse to create triggers"*, Aiven didn't allow triggers. Use the offline setup from step 4 for the demo; everything, including the triggers, works there.
+If step 6 says the cloud *"will refuse to create triggers"*, Aiven didn't allow triggers. Use the offline setup from steps 3–5 for the demo; everything, including the triggers, works there.
 
 ---
 
