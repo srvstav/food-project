@@ -1,19 +1,13 @@
-# Render Blueprint: the API + website as one free web service.
+# Render Blueprint: the Java API + website as one free web service (built from the Dockerfile).
 # Deploy: https://dashboard.render.com/blueprint/new → pick this repo → paste MESS_SETTINGS → Apply.
 # MESS_SETTINGS is the single line that setup_cloud.bat copies to the clipboard (also in RENDER_VALUE.txt).
 services:
   - type: web
     name: mess-api
-    runtime: python
+    runtime: docker
     plan: free
     region: singapore
-    rootDir: backend
-    buildCommand: pip install -r requirements.txt
-    # --proxy-headers: Render sits in front, so the visitor's IP (for rate limits) comes from X-Forwarded-For.
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'
     healthCheckPath: /health
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.12.8
       - key: MESS_SETTINGS
         sync: false

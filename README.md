@@ -1,161 +1,98 @@
-# MUJ Mess
+# Food Project: MUJ Mess (Java)
 
-One annual fee and two messes (**BluDove** and **BluSpring**). Students book where they'll eat for every meal: breakfast, lunch, hi-tea and dinner. Each kitchen cooks for the people who booked, plus 30%. Staff mark who was served, and leftovers go to NGOs.
+Students pay one annual fee and eat at two messes, **BluDove** and **BluSpring**. They book where they'll eat each meal (breakfast, lunch, hi-tea, dinner). Each kitchen cooks for the people who booked, plus 30%. Staff mark who was served, and leftover food goes to NGOs.
 
-An RDBMS project: **MySQL 8** (14 tables, 12 triggers, 4 stored procedures, 1 function, 7 views, and a 1,200-student roster) + **Python FastAPI** + a plain HTML/CSS/JS website.
+**An Object-Oriented Programming in Java project.** The backend is plain Java 17 with no frameworks, so every OOP idea shows up in our own code. Every place an idea is used has a comment that starts with `// OOP:`.
 
-**Taking this project over? Start with [HANDOVER.md](HANDOVER.md). Presenting it in MySQL Workbench? [WORKBENCH.md](WORKBENCH.md).**
+**Studying for the viva? Read [OOP_GUIDE.md](OOP_GUIDE.md).** It covers every concept, the file it's in, how one request moves through the system, and the questions an examiner is likely to ask.
+
+```
+ Browser (docs/: HTML + JS)  ──HTTP/JSON──►  Java backend (backend/)  ──JDBC──►  MySQL 8 (db/)
+  student site, staff counter,               controller → service → repository     14 tables, 12 triggers,
+  live dashboard                                                                    4 procedures, 7 views
+```
 
 | Page | What it is |
 | --- | --- |
-| `index.html` | Student site: log in with a code (SMS once Firebase is set up; any number works, new ones join the roster), book meals, pause when going home |
-| `staff.html` | Mess counter: mark students served, close a meal so leftovers go to NGOs |
-| `dashboard.html` | Mess ledger: each mess's profit, margin, waste and no-shows over 7 days, tomorrow's shopping plan, and the live MySQL feed (every 2 seconds) |
+| http://localhost:8000 | Student site: log in with a code shown on screen, book meals, pause when going home |
+| http://localhost:8000/staff.html | Mess counter: mark students served, close a meal so leftovers go to NGOs (needs the staff PIN) |
+| http://localhost:8000/dashboard.html | Live board: each mess's profit, waste and no-shows over 7 days, tomorrow's plan, live MySQL feed |
+
+## Run it (Windows, about 10 minutes the first time)
+
+1. **Install once:**
+   - **JDK 17 or newer**: https://adoptium.net (Temurin). Tick "Set JAVA_HOME" and "Add to PATH".
+   - **MySQL Server 8 + Workbench**: https://dev.mysql.com/downloads/installer/ → Custom → MySQL Server + MySQL Workbench. Remember the root password.
+   - **Python 3.12+** (only to build the database and load demo data): https://www.python.org/downloads/. Tick "Add python.exe to PATH".
+2. **Download this repo:** Code → Download ZIP, then unzip it (for example to `C:\food-project`).
+3. Double-click **`setup.bat`**. Press Enter 3 times, then type the MySQL root password. It builds the `mess` database and prints a **Staff PIN**. Write the PIN down.
+4. Double-click **`demo.bat`** (optional, recommended). It fills a realistic day: about 700 students' bookings, serves and donations.
+5. Double-click **`start.bat`**. The first run downloads Maven and builds the Java code (a few minutes). Then the site opens at http://localhost:8000. Keep the black window open.
+
+macOS/Linux: `python3 setup.py local`, then `./start.sh`.
+
+**Changed a `.java` file?** Run **`build.bat`** (it rebuilds and runs the unit tests), then `start.bat` again.
+
+**No Python?** In MySQL Workbench open and run `db/mess_complete.sql` (see [WORKBENCH.md](WORKBENCH.md)). Then copy `backend/.env.example` to `backend/.env` and fill in your MySQL user and password.
+
+**During the demo:** `python demo_data.py live` keeps making bookings and serves every second or two, so the dashboard moves. Ctrl+C stops it. `reset.bat` wipes the database and rebuilds it.
+
+## Try it
+
+1. Open the student site, type any 10-digit number starting with 6–9, and tap Send code. The code appears on screen (demo mode, no SMS). Type it to log in.
+2. Book lunch at BluDove. Then pause your mess for tomorrow and try booking tomorrow: MySQL's trigger refuses it, and Java turns that into a clear message.
+3. Open the staff counter, enter the PIN, and serve your number. Serve it again: "Already served this meal today".
+4. Close a meal: leftover portions go to the NGO that has received the least so far.
+5. Watch the dashboard update every 2 seconds.
+
+## How the code is organised
 
 ```
- Website (GitHub Pages)  ──HTTPS──►  API (FastAPI on Render)  ──TLS──►  MySQL (Aiven)  ◄──  Workbench
-      docs/                               backend/                          db/
- Offline mode: start.bat runs the API + website on one laptop against that laptop's MySQL.
+backend/src/main/java/com/muj/mess/
+  Main.java                 start here: creates every object and wires them together
+  config/AppConfig.java     settings (record, immutable)
+  db/Database.java          opens MySQL connections, runs work in a transaction
+  db/SqlWork.java           functional interface: "some work to do on a connection"
+  model/                    data: Student, Booking (records), MealStatus (enum),
+                            Validatable (interface), Requests (the JSON bodies, each validates itself)
+  repository/               all SQL. BaseRepository (abstract) ← StudentRepository, MenuRepository,
+                            BookingRepository, MealRepository, DashboardRepository
+  service/                  business rules: AuthService, TokenService, RateLimiter,
+                            StudentService, StaffService, DashboardService
+  web/                      the HTTP server: ApiServer, Router, ApiRequest, Endpoint, Controller,
+                            ApiException (abstract) ← BadRequest, Unauthorized, Forbidden, NotFound …
+  web/controller/           AuthController, StudentController, StaffController, DashboardController
+backend/src/test/java/      JUnit tests
+db/                         schema.sql (tables, triggers, procedures, views), seed.sql, students.csv
+docs/                       the website (HTML/CSS/JS)
 ```
 
-## ▶ Start here (the whole handover)
+Find every OOP comment: `findstr /s /n "OOP:" backend\src\main\java\*.java` (Windows) or `grep -rn "OOP:" backend/src` (macOS/Linux).
 
-**Everyone (on their own Windows laptop, ~10 min):**
-1. Install **MySQL Server + Workbench** and **Python** (details in section A). Remember the MySQL root password.
-2. Download this project (**Code → Download ZIP**) and unzip it.
-3. Double-click **`setup.bat`**, press Enter 3 times, then type the MySQL root password.
-4. Double-click **`start.bat`**. The site opens at http://localhost:8000. That's the full system, offline.
-5. Double-click **`workbench.bat`**: MySQL Workbench opens connected to the database with the demo queries loaded.
-   *(No Python on a laptop? In Workbench open and run `db\mess_complete.sql`. See [WORKBENCH.md](WORKBENCH.md).)*
+## API
 
-**One person, once, to put it online (~10 min):**
-6. Sign up at **aiven.io** → Create service → **MySQL** → **Free plan**. When it's running, copy the **Service URI** and click **CA certificate → Download**.
-7. Double-click **`setup_cloud.bat`** and paste the Service URI when asked. It finds `ca.pem` in Downloads by itself, builds the cloud database, and **copies one long line to your clipboard**.
-8. Sign up at **render.com** with GitHub → open https://dashboard.render.com/blueprint/new → pick this repo → paste (Ctrl+V) into **MESS_SETTINGS** → **Apply**. Wait for **Live**.
-   **The Render address (`https://mess-api-….onrender.com`) is now your website**, usable from any phone.
-9. Send the other two **`CLOUD_DETAILS.txt`** and **`ca.pem`**, so their Workbench connects to the same live database (section C4).
-
-*Optional:* to make the github.io address use the cloud too, edit `docs/config.js` on github.com (pencil icon) and paste the Render address into `MESS_CLOUD_API`.
-
-If step 6 says the cloud *"will refuse to create triggers"*, Aiven didn't allow triggers. Use the offline setup from steps 3–5 for the demo; everything, including the triggers, works there.
-
----
-
-## A. Run it on a Windows laptop (offline, about 10 minutes)
-
-**1. Install once**
-
-- **MySQL Server 8.0 or newer + MySQL Workbench**: https://dev.mysql.com/downloads/installer/ → *MySQL Installer for Windows* → choose **Custom** → add *MySQL Server* and *MySQL Workbench*. Remember the **root password** you set during the install.
-  - Already have Workbench? Check the server too: press `Win + R`, type `services.msc`, and look for **MySQL80** (or MySQL84 / MySQL). It should say *Running*.
-- **Python 3.12 or 3.13**: https://www.python.org/downloads/. On the first installer screen, tick **"Add python.exe to PATH"**.
-
-**2. Get the project.** On GitHub press **Code → Download ZIP**, then unzip it somewhere simple, like `C:\mess`. Or use `git clone`.
-
-**3. Double-click `setup.bat`.** It installs the Python packages, then asks for the MySQL details:
-
-```
-Host [127.0.0.1]:            ← press Enter
-Port [3306]:                 ← press Enter
-Admin user [root]:           ← press Enter
-Password for root:           ← type your MySQL root password (nothing shows while typing; that's normal)
-```
-
-It then builds the `mess` database and prints a **Staff PIN**. Write the PIN down.
-
-**4. Double-click `start.bat`.** Keep that black window open. The browser opens http://localhost:8000.
-
-| URL | |
-| --- | --- |
-| http://localhost:8000 | student site |
-| http://localhost:8000/dashboard.html | live board |
-| http://localhost:8000/staff.html | staff counter (needs the PIN) |
-| http://localhost:8000/docs | interactive API docs (Swagger) |
-
-**5. (Optional) Double-click `demo.bat`.** It loads a realistic day for the roster: about 700 students' bookings, pauses, logins, attendance and donations, so every table and view has data to show.
-
-During a presentation, run **`python demo_data.py live`** (or `python demo_data.py cloud live`). It keeps making bookings, mess switches and serves every second or two, so the dashboard and Workbench keep moving. Ctrl+C stops it.
-
-`reset.bat` wipes the database and rebuilds it from scratch.
-
-## B. Watch it live in MySQL Workbench
-
-1. Open Workbench, then click **⊕** next to *MySQL Connections*.
-2. Connection name: `MUJ Mess (local)` · Hostname `127.0.0.1` · Port `3306` · Username `root`. Click **OK**, then open it and enter the root password.
-3. **File → Open SQL Script →** `db\demo_queries.sql`.
-4. Do something on the website (log in, book, pause). Then click inside query 1 and press **Ctrl + Enter**. The new rows appear: ENROL, LOGIN, BOOK, PAUSE…
-
-   Workbench doesn't refresh on its own. Press Ctrl + Enter again after each action, and keep `dashboard.html` open beside it for a view that refreshes by itself.
-5. **ER diagram:** **Database → Reverse Engineer… →** pick the connection → select schema `mess` → Next until **Finish**. Workbench draws all 14 tables and their foreign keys.
-
-## C. Put it online for everyone (one person, once)
-
-This makes the website work from any phone, and all three laptops' Workbench show the **same** live database.
-
-**1. Cloud MySQL (Aiven, free)**
-1. Sign up at https://console.aiven.io (the GitHub login is fine).
-2. **Create service → MySQL → Free plan →** create it, and wait until it shows *Running*.
-3. On the service page, copy the **Service URI**, and click **CA certificate → Download** (it saves `ca.pem` to Downloads).
-4. Double-click **`setup_cloud.bat`** and paste the Service URI when asked. It:
-   - builds all tables, triggers, procedures and views in the cloud,
-   - copies **one line** (the Render setting) to your clipboard, and also saves it in `RENDER_VALUE.txt`,
-   - writes **`CLOUD_DETAILS.txt`** (the Workbench login + staff PIN) and puts `ca.pem` next to it.
-
-   If it says the server *"will refuse to create triggers"*: in Aiven, open **Service settings → Advanced configuration**, turn on `log_bin_trust_function_creators` if it's listed, and run it again. If it isn't listed, use the offline setup (section A) for the demo.
-
-**2. Cloud API + website (Render, free)**
-1. Sign up at https://render.com with GitHub, and give it access to this repository.
-2. Open https://dashboard.render.com/blueprint/new → pick this repository.
-3. In the **MESS_SETTINGS** box, paste (Ctrl+V) → **Apply**. The first build takes 3–5 minutes.
-4. When it shows **Live**, open its address (like `https://mess-api-xxxx.onrender.com`). That address is the full website: student site, `/dashboard.html`, `/staff.html`.
-5. *Optional:* so the github.io address also works, open `docs/config.js` on github.com (pencil icon), set `window.MESS_CLOUD_API = "https://mess-api-xxxx.onrender.com";` and commit. This also turns on the `keep-awake` ping, which stops the free server from sleeping during the day.
-
-**3. Workbench → cloud database (every laptop)**
-Use `CLOUD_DETAILS.txt`: new connection with that Hostname, Port, Username and Password.
-On the **SSL** tab, set *Use SSL* to **Require**, and *SSL CA File* to `ca.pem`. Then **Test Connection**.
-
-**4. Sample data in the cloud:** double-click **`demo_cloud.bat`**.
-
-## D. Morning of the demo
-
-- [ ] Open `<Render address>/health`. It should say ok (this also wakes the server, which can take up to a minute).
-- [ ] Double-click `demo_cloud.bat` (or `demo.bat` for the offline setup) so today has data.
-- [ ] Phone: the student site · Projector: `dashboard.html` · Laptop: Workbench with `demo_queries.sql`.
-- [ ] Backup: if the Wi-Fi fails, use `start.bat` on one laptop (section A). Everything works offline except new logins, which need internet for the SMS. Log in on the demo phone beforehand: a logged-in session stays valid for 7 days.
-- [ ] Read `viva/project.html` sections 10 and 11: who says what, and the likely viva questions. (It's kept out of the public site.)
+| Method | Path | Who | What |
+| --- | --- | --- | --- |
+| GET | `/health` | anyone | API and database are up |
+| POST | `/auth/check` | anyone | make a login code for a phone (rate-limited: 10 per 10 min per IP) |
+| POST | `/auth/demo-verify` | anyone | check the code, get a session token |
+| GET | `/me` | student | my profile |
+| GET | `/menu` | anyone | dishes per meal per mess |
+| GET | `/bookings/me?meal_date=` | student | my bookings for a day |
+| POST | `/bookings` | student | book (`mess_id`) or skip (`mess_id: null`) a meal |
+| GET / POST | `/pause/me`, `/pause` | student | see / add a pause (stored procedure `sp_pause_mess`) |
+| POST | `/resume` | student | come back early (`sp_resume_mess`) |
+| GET | `/staff/check` | staff PIN | check the PIN |
+| POST | `/staff/serve` | staff PIN | mark a student served |
+| POST | `/staff/close-meal` | staff PIN | give leftovers to NGOs (`sp_close_meal`) |
+| GET | `/stats/today`, `/admin/live` | anyone | dashboard data (phone numbers masked) |
 
 ## Troubleshooting
 
 | Problem | Fix |
 | --- | --- |
-| `Python is not installed` | Install Python, tick **Add to PATH**, then run `setup.bat` again |
-| `Access denied for user 'root'` | Wrong MySQL root password. Use the one from the MySQL install |
-| `Can't connect to MySQL` | `services.msc` → start **MySQL80** |
-| `start.bat` says *address already in use* | It's already running in another window. Close that window first |
-| Website says *Can't reach the mess server* | Local: is the `start.bat` window open? Cloud: open `<API>/health` and wait up to a minute |
-| Workbench shows old rows | Press **Ctrl + Enter** to run the query again |
-| Want to start clean | `reset.bat` (local) or `setup_cloud.bat` (cloud) |
-
-## How it's organised
-
-```
-db/schema.sql         tables, constraints, triggers, procedures, views
-db/seed.sql           2 messes, 4 meals, menus, 12 programmes, 22 hostels (B1–B12, G1–G10), 3 NGOs
-db/students.csv       the student roster (1,200 fictional students; add real ones here)
-db/demo_queries.sql   open in Workbench during the demo
-backend/main.py       API endpoints (controller)
-backend/repo.py       every SQL statement, all parameterized (repository)
-backend/auth.py       login (Firebase SMS -> roster check -> session token), staff PIN
-backend/firebase.py   checks Firebase's signed login token with Google's public keys
-backend/tests/        automated tests: run  backend\.venv\Scripts\python -m pytest -q backend\tests
-docs/                 the website (student, staff, dashboard, photo credits); docs/food/ = plate photos
-viva/project.html     how it's built: ER diagram, normalization, demo plan, viva answers (not published)
-setup.py              builds the database (local or cloud), used by setup.bat
-demo_data.py          loads a realistic day, used by demo.bat
-```
-
-**Design decisions**
-- **Raw SQL, no ORM**, so every query, trigger and view can be seen and explained. All queries are parameterized.
-- **Real SMS login through Firebase.** Firebase sends and checks the code (no DLT paperwork needed). The API verifies Firebase's signed token, then only lets in phones that are on the `students` roster.
-- **The app's database user is `mess_app`**, with SELECT, INSERT, UPDATE and EXECUTE only. It has no DELETE, DROP or ALTER.
-- **India time everywhere.** Cloud servers run on UTC, so the API and every database session use `+05:30`.
-- **Donation rule:** leftover = unused 30% buffer + 50% of the no-shows' portions, capped at what's actually left. It's assigned to the NGO that has received the least so far.
+| `'java' is not recognized` | Install the JDK (step 1), then open a new window |
+| `Missing setting DB_USER` | Run `setup.bat` first; it writes `backend/.env` |
+| "Database is unavailable" | MySQL isn't running: `Win + R` → `services.msc` → start **MySQL80** |
+| Port 8000 in use | Close the other server window, or run `set PORT=8001` and then `start.bat` in the same window |
+| Changed Java code but nothing changed | Run `build.bat`, then restart `start.bat` |

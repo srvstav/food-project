@@ -23,7 +23,7 @@ if not exist "backend\.venv\Scripts\python.exe" (
   if errorlevel 1 goto :fail
 )
 echo Installing packages - the first time takes a minute...
-"backend\.venv\Scripts\python.exe" -m pip install --disable-pip-version-check -q -r backend\requirements.txt
+"backend\.venv\Scripts\python.exe" -m pip install --disable-pip-version-check -q -r requirements.txt
 if errorlevel 1 goto :fail
 echo.
 "backend\.venv\Scripts\python.exe" setup.py %1

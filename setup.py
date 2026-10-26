@@ -25,7 +25,7 @@ from urllib.parse import unquote, urlparse
 try:
     import pymysql
 except ImportError:
-    sys.exit("pymysql is missing. Run setup.bat (Windows) or: pip install -r backend/requirements.txt")
+    sys.exit("pymysql is missing. Run setup.bat (Windows) or: pip install -r requirements.txt")
 
 ROOT = Path(__file__).resolve().parent
 BACKEND = ROOT / "backend"
