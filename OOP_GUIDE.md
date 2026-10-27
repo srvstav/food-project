@@ -256,6 +256,17 @@ Staff PIN and tokens are compared in constant time. Login codes are rate-limited
 6. Open the code in the order of section 3: `Main` → `StudentController` → `StudentService.book` → `BookingRepository.upsert` → `BaseRepository` → `ApiException`.
 7. Run `grep -rn "OOP:" backend/src` (or `findstr`) to show every concept is commented.
 
+## 8b. Show all three parts side by side
+
+| Window | What to point at |
+| --- | --- |
+| **Website** (browser) | Click "Book" |
+| **Java backend** (Terminal / `start.bat` window) | A new line appears: `10:42:01  POST /bookings → 200 (12 ms)`. That is our Java code answering |
+| **MySQL Workbench** (`db/demo_queries.sql`) | Put the cursor in query 1 or 2 and press Cmd/Ctrl+Enter: the new booking and the trigger's `activity_log` row are there |
+| **Code** (VS Code) | Open the file that just ran: `StudentController` → `StudentService.book` → `BookingRepository.upsert` |
+
+You can also open an API address directly in the browser to show raw JSON from Java, for example `/menu` or `/admin/live?limit=5`.
+
 ## 9. Files to know by heart
 
 `Main.java`, `BaseRepository.java`, `ApiException.java`, `Validatable.java` + `Requests.java`, `StudentService.java`, `ApiServer.java`. If you understand those six, you understand the system.
