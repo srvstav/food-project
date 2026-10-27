@@ -1,5 +1,6 @@
 package com.muj.mess.web;
 
+import com.muj.mess.config.AppConfig;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -12,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.SQLException;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -74,7 +76,11 @@ public class ApiServer implements HttpHandler {
             }
             Optional<Endpoint> endpoint = router.find(method, path);
             if (endpoint.isPresent()) {
+                long started = System.nanoTime();
                 answer(ex, endpoint.get());
+                // Live request log in the server window, so the backend's work is visible during the demo.
+                System.out.printf("%s  %-4s %-20s → %d  (%d ms)%n", LocalTime.now(AppConfig.IST).withNano(0),
+                        method, path, ex.getResponseCode(), (System.nanoTime() - started) / 1_000_000);
             } else if (router.knows(path)) {
                 sendJson(ex, 405, Map.of("detail", "Method not allowed"));
             } else {
